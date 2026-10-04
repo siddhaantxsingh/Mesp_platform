@@ -1,0 +1,21 @@
+[project]
+name = "mesp-gateway"
+version = "1.0.0"
+description = "Edge gateway: BLE / serial / replay / simulator byte streams -> validated frames -> MESP API"
+requires-python = ">=3.11"
+dependencies = ["mesp-protocol", "mesp-replay", "websockets>=12"]
+
+[project.optional-dependencies]
+serial = ["pyserial>=3.5"]
+ble = ["bleak>=0.22"]
+sim = ["mesp-simulator"]
+
+[project.scripts]
+mesp-gateway = "mesp_gateway.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["mesp_gateway*"]

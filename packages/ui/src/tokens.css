@@ -1,0 +1,53 @@
+/* MESP design tokens. HSL triplets so Tailwind can apply alpha. */
+:root {
+  --radius: 14px;
+  --background: 210 20% 98%;
+  --foreground: 216 28% 9%;
+  --surface: 0 0% 100%;
+  --surface-2: 210 22% 95%;
+  --muted: 214 16% 36%;
+  --border: 214 18% 87%;
+  --ring: 174 84% 26%;
+  --primary: 174 84% 24%;
+  --primary-foreground: 0 0% 100%;
+  --critical: 352 80% 38%;
+  --warning: 30 95% 29%;
+  --info: 206 80% 34%;
+  --ok: 152 70% 24%;
+  --signal-ecg: 156 72% 26%;
+  --signal-ppg-red: 352 76% 42%;
+  --signal-ppg-ir: 258 60% 46%;
+  --signal-imu-x: 24 90% 35%;
+  --signal-imu-y: 196 85% 30%;
+  --signal-imu-z: 280 56% 42%;
+  --signal-imu-mag: 216 20% 30%;
+  --grid-minor: 214 18% 92%;
+  --grid-major: 214 18% 84%;
+}
+.dark {
+  --background: 220 18% 5%;
+  --foreground: 210 20% 94%;
+  --surface: 220 16% 8%;
+  --surface-2: 220 14% 11%;
+  --muted: 216 10% 62%;
+  --border: 220 12% 17%;
+  --ring: 168 82% 52%;
+  --primary: 168 82% 50%;
+  --primary-foreground: 220 30% 6%;
+  --critical: 354 95% 71%;
+  --warning: 38 96% 60%;
+  --info: 204 90% 64%;
+  --ok: 152 66% 52%;
+  --signal-ecg: 152 78% 56%;
+  --signal-ppg-red: 354 92% 66%;
+  --signal-ppg-ir: 256 90% 76%;
+  --signal-imu-x: 30 96% 62%;
+  --signal-imu-y: 192 88% 60%;
+  --signal-imu-z: 284 80% 74%;
+  --signal-imu-mag: 210 16% 82%;
+  --grid-minor: 220 12% 10%;
+  --grid-major: 220 12% 15%;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --motion-scale: 0; }
+}

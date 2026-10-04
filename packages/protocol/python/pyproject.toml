@@ -1,0 +1,16 @@
+[project]
+name = "mesp-protocol"
+version = "1.0.0"
+description = "Wire protocol for the MESP wrist-worn monitor: framing, CRC-16, decoders, device profiles"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["mesp_protocol*"]

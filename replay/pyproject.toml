@@ -1,0 +1,13 @@
+[project]
+name = "mesp-replay"
+version = "1.0.0"
+description = "Record and replay raw MESP link byte streams (.mesprec)"
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["mesp_replay*"]
