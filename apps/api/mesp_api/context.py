@@ -58,6 +58,32 @@ class AppContext:
                 log.error("MESP_ADMIN_PASSWORD is shorter than 10 characters: admin account NOT created")
                 return
             async with self.db.session() as s:
+                existing = (await s.execute(select(models.User).where(models.User.email == st.admin_email))).scalar_one_or_none()
+                if existing is None:
+                    s.add(models.User(email=st.admin_email.lower(), password_hash=hash_password(st.admin_password), role="admin"))
+                    await s.commit()
+                    log.info("bootstrap admin %s created", st.admin_email)
+
+
+async def cancel(task: asyncio.Task | None) -> None:
+    if task and not task.done():
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):  # noqa: S110 - task is being torn down on purpose
+            pass
+
+    async def bootstrap(self) -> None:
+        if self.settings.auto_create_schema:
+            await self.db.create_all()
+        from .security import hash_password
+        st = self.settings
+        if st.admin_email and st.admin_password:
+            if len(st.admin_password) < 10:
+                # don't crash the deployment over a bootstrap setting; just don't create the account
+                log.error("MESP_ADMIN_PASSWORD is shorter than 10 characters: admin account NOT created")
+                return
+            async with self.db.session() as s:
              existing = (await s.execute(
     select(models.User).where(models.User.email == st.admin_email)
 )).scalar_one_or_none()
