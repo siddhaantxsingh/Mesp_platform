@@ -1,0 +1,55 @@
+# MESP platform — local / lab deployment.
+#   cp .env.example .env   # then set real secrets
+#   docker compose up --build            -> http://localhost:8080  (demo mode, synthetic data)
+#   docker compose --profile gateway up  -> also runs a gateway container (set MESP_DEVICE_KEY)
+name: mesp
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mesp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: mesp
+    volumes: [db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mesp"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build: { context: ., dockerfile: docker/api.Dockerfile }
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      MESP_ENV: ${MESP_ENV:-production}
+      MESP_DATABASE_URL: postgresql+asyncpg://mesp:${POSTGRES_PASSWORD}@db:5432/mesp
+      MESP_AUTO_CREATE_SCHEMA: "false"
+      MESP_JWT_SECRET: ${MESP_JWT_SECRET:?set MESP_JWT_SECRET in .env}
+      MESP_ADMIN_EMAIL: ${MESP_ADMIN_EMAIL:-}
+      MESP_ADMIN_PASSWORD: ${MESP_ADMIN_PASSWORD:-}
+      MESP_DEMO_MODE: ${MESP_DEMO_MODE:-true}
+      MESP_DEMO_AUTOSTART_SCENARIO: ${MESP_DEMO_AUTOSTART_SCENARIO:-normal}
+      MESP_CORS_ORIGINS: '["http://localhost:8080"]'
+    restart: unless-stopped
+
+  web:
+    build: { context: ., dockerfile: docker/web.Dockerfile }
+    depends_on: [api]
+    ports: ["8080:80"]
+    restart: unless-stopped
+
+  gateway:
+    profiles: ["gateway"]
+    build: { context: ., dockerfile: docker/gateway.Dockerfile }
+    depends_on: [api]
+    environment:
+      MESP_API_INGEST: ws://api:8000/api/v1/ingest/ws
+      MESP_DEVICE_KEY: ${MESP_DEVICE_KEY:-}   # create a device in the console, put its key in .env
+      MESP_SOURCE: ${MESP_GATEWAY_SOURCE:-sim}
+      MESP_SCENARIO: ${MESP_GATEWAY_SCENARIO:-normal}
+    command: ["--source", "${MESP_GATEWAY_SOURCE:-sim}", "--scenario", "${MESP_GATEWAY_SCENARIO:-normal}"]
+    restart: unless-stopped
+
+volumes:
+  db-data:

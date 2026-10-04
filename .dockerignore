@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/*.db
+.git
+.env
+apps/web/test-results
+apps/web/playwright-report
+replay/recordings/*.mesprec

@@ -1,0 +1,16 @@
+[project]
+name = "mesp-simulator"
+version = "1.0.0"
+description = "Deterministic MESP device simulator: emits byte-exact firmware link frames (SIMULATED DATA)"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26", "mesp-protocol"]
+
+[project.scripts]
+mesp-sim = "mesp_simulator.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["mesp_simulator*"]

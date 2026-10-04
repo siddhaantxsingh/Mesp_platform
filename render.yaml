@@ -1,0 +1,35 @@
+# Render Blueprint for the MESP API + PostgreSQL (the web console goes on Vercel).
+# Render → New → Blueprint → pick this repo. Fill MESP_CORS_ORIGINS and admin credentials when asked.
+databases:
+  - name: mesp-db
+    plan: free
+    databaseName: mesp
+    user: mesp
+
+services:
+  - type: web
+    name: mesp-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./docker/api.Dockerfile
+    dockerContext: .
+    healthCheckPath: /ready
+    envVars:
+      - key: MESP_ENV
+        value: production
+      - key: MESP_DATABASE_URL
+        fromDatabase: { name: mesp-db, property: connectionString }
+      - key: MESP_AUTO_CREATE_SCHEMA
+        value: "false"
+      - key: MESP_JWT_SECRET
+        generateValue: true
+      - key: MESP_DEMO_MODE
+        value: "true"
+      - key: MESP_DEMO_AUTOSTART_SCENARIO
+        value: normal
+      - key: MESP_CORS_ORIGINS
+        sync: false        # your Vercel URL, e.g. https://mesp-platform.vercel.app (comma-separate several)
+      - key: MESP_ADMIN_EMAIL
+        sync: false
+      - key: MESP_ADMIN_PASSWORD
+        sync: false

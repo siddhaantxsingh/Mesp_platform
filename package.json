@@ -1,0 +1,14 @@
+{
+  "name": "mesp-platform",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": ["apps/web", "packages/types", "packages/ui", "packages/protocol/ts"],
+  "scripts": {
+    "dev:web": "npm -w apps/web run dev",
+    "build:web": "npm -w apps/web run build",
+    "test:web": "npm -w apps/web run test",
+    "test:protocol-ts": "npm -w packages/protocol/ts run test",
+    "lint:web": "npm -w apps/web run lint",
+    "e2e": "npm -w apps/web run e2e"
+  }
+}
