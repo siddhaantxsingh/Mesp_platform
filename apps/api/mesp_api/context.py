@@ -72,5 +72,3 @@ async def cancel(task: asyncio.Task | None) -> None:
             await task
         except (asyncio.CancelledError, Exception):  # noqa: S110 - task is being torn down on purpose
             pass
-
-    log.info("bootstrap admin %s created", st.admin_email)
