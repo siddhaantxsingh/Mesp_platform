@@ -1,1223 +1,570 @@
 <div align="center">
-<h1>MESP Health Monitoring Platform</h1>
 
-<h3>From wearable sensor bytes to a real-time physiological monitoring console.</h3>
+# 🫀 MESP Health Monitoring Platform
 
-<p>
-<img src="https://img.shields.io/badge/STM32G431-Cortex--M4-03234B?style=for-the-badge" alt="STM32G431">
-<img src="https://img.shields.io/badge/BLE-nRF52840-0082FC?style=for-the-badge" alt="BLE">
-<img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
-<img src="https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL">
-<img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React">
-<img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
-<img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
-</p>
-<p>
-<strong>ECG · PPG · IMU · BLE · Streaming Ingest · DSP · Event
-Detection · Time-Series Storage · Replay · Real-Time
-Visualization</strong>
-</p>
-<p>
-<a href="#-system-architecture">Architecture</a> ·
-<a href="#-protocol-engineering">Protocol</a> ·
-<a href="#-signal-processing">DSP</a> ·
-<a href="#-correctness--testing">Testing</a> ·
-<a href="#-performance">Performance</a> ·
-<a href="#-security--privacy">Security</a> ·
-<a href="#-real-hardware">Hardware</a>
-</p>
+### From wearable sensor bytes to a real-time physiological monitoring console
+
+**Three sensors. One wrist. Every byte accounted for.**
+
+<br/>
+
+![STM32](https://img.shields.io/badge/STM32G431-Cortex--M4-03234B?style=for-the-badge&logo=stmicroelectronics&logoColor=white)
+![BLE](https://img.shields.io/badge/BLE-nRF52840-0082FC?style=for-the-badge&logo=bluetooth&logoColor=white)
+![Python](https://img.shields.io/badge/Python-asyncio_·_NumPy_·_SciPy-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-2E7D32?style=for-the-badge)
+
+![Tests](https://img.shields.io/badge/automated_tests-122_passing-2E7D32?style=flat-square)
+![Vectors](https://img.shields.io/badge/firmware_golden_vectors-byte--exact-6A1B9A?style=flat-square)
+![Ingest](https://img.shields.io/badge/max_ingest-~6%2C400_frames%2Fs-1565C0?style=flat-square)
+![Devices](https://img.shields.io/badge/16_devices_real--time-p95_≤_336_ms-00838F?style=flat-square)
+![Storage](https://img.shields.io/badge/DB_writes-2%2C000→3_rows%2Fs%2Fdevice-E65100?style=flat-square)
+![A11y](https://img.shields.io/badge/WCAG_2_A%2FAA-0_serious_violations-2E7D32?style=flat-square)
+
+<br/>
+
+<img src="docs/images/live.png" alt="MESP live monitoring console with ECG, PPG and motion waveforms" width="95%"/>
+
+<sub><a href="#-system-architecture">Architecture</a> · <a href="#-protocol-engineering">Protocol</a> · <a href="#-the-timestamp-problem">Timestamps</a> · <a href="#-signal-processing">DSP</a> · <a href="#-performance">Performance</a> · <a href="#-correctness--testing">Testing</a> · <a href="#-security--privacy">Security</a> · <a href="#-quick-start">Quick start</a></sub>
+
 </div>
 
-> **Engineering/research prototype --- not a medical device.**
->
-> MESP does not provide medical diagnosis. Physiological values and
-> alerts must not be treated as clinically validated measurements or
-> used as a substitute for professional medical evaluation.
+> [!WARNING]
+> **Engineering / research prototype — not a medical device.** MESP does not provide medical diagnosis. Physiological values and alerts are not clinically validated and must not replace professional medical evaluation. Synthetic data is labelled as such everywhere — UI, sessions, events and exports.
 
-------------------------------------------------------------------------
+---
 
-## ✦ What is MESP?
+## ⚡ TL;DR
 
-MESP is the software platform behind a wrist-worn multi-parameter
-health-monitoring prototype.
+MESP is the software platform behind a **wrist-worn multi-parameter health monitor**: an STM32G431 sampling **ECG** (AD8232), **PPG** (MAX30102) and **6-axis motion** (MPU-6886), streaming framed bytes over an **nRF52840 BLE bridge**.
 
-The wearable acquires:
+This repository takes that raw byte stream all the way to a real-time monitoring console — and the interesting engineering is **everything required to make the dashboard trustworthy about the data it receives**:
 
--   **ECG** from an AD8232
--   **PPG** from a MAX30102
--   **6-axis motion** from an MPU-6886
+- 🧬 **Protocol derived from firmware, not docs** — the firmware's own `nrf_link.c` is compiled on a host to produce golden byte vectors; Python and TypeScript decoders must match byte-for-byte.
+- 🛡️ **Loss-aware streaming** — CRC, false-sync-resistant deframing, sequence-gap loss accounting (exact against injected loss), duplicate suppression.
+- ⏱️ **Timestamps for a protocol that has none** — per-stream clock reconstruction with drift correction and gap detection.
+- 🧠 **Server-side DSP** — Pan-Tompkins-style R-peaks, RR irregularity, motion-gated SpO₂ estimate, fall heuristic.
+- 💾 **1-second Float32 chunks** — ~2,000 raw samples/s per device become **3 rows/s**.
+- ⚡ **Canvas waveforms** over Float32 ring buffers kept *outside* React state.
+- 🧪 **Byte-exact simulator** with 10 deterministic scenarios — hardware, recordings and simulation all use **one code path**.
 
-on an **STM32G431**, then sends framed sensor data through an **nRF52840
-BLE bridge**.
-
-This repository takes the system from that raw byte stream all the way
-to:
-
-``` text
-sensor frames
-    ↓
-BLE / serial / replay / simulator
-    ↓
-gateway
-    ↓
-protocol validation
-    ↓
-loss + duplicate tracking
-    ↓
-timestamp reconstruction
-    ↓
-persistent 1-second chunks
-    ↓
-signal processing
-    ↓
-derived estimates
-    ↓
-event engine
-    ↓
-live WebSocket
-    ↓
-React monitoring console
-```
-
-The important part is not the dashboard.
-
-**The interesting engineering is everything required to make the
-dashboard trustworthy about the data it receives.**
-
-------------------------------------------------------------------------
+---
 
 ## 🖥️ Product
 
 <p align="center">
-<img src="docs/images/live.png" width="98%" alt="MESP live monitoring console">
+<img src="docs/images/landing.png" width="48%" alt="MESP landing page"/>
+<img src="docs/images/events.png" width="48%" alt="MESP events console"/>
 </p>
-The console provides:
-
--   real-time ECG waveform visualization
--   PPG / pleth visualization
--   accelerometer and gyroscope data
--   derived heart-rate and pulse-rate estimates
--   uncalibrated SpO₂ estimate with motion gating
--   ECG quality / lead-off state
--   activity and orientation
--   heuristic fall events
--   packet-loss and CRC telemetry
--   event acknowledgement
--   historical sensor timelines
--   event click-through to the exact time window
--   CSV / JSON export
--   device pairing
--   sessions and scenarios
--   responsive light/dark UI
-
-Synthetic data is explicitly labelled throughout the UI, sessions,
-events, and exports.
-
 <p align="center">
-<img src="docs/images/history_event.png" width="48%" alt="MESP historical event timeline">
-<img src="docs/images/events.png" width="48%" alt="MESP events console">
+<img src="docs/images/history_event.png" width="48%" alt="History timeline with event click-through"/>
+<img src="docs/images/demo.png" width="48%" alt="Demo mode with scenarios"/>
 </p>
 
-------------------------------------------------------------------------
+| Monitoring | Data & history | Operations |
+|---|---|---|
+| Real-time ECG, PPG/pleth, accelerometer and gyroscope | Zoomable historical sensor timelines with min/max envelopes | Device pairing with per-device ingest keys |
+| Heart-rate and pulse-rate estimates | Event click-through to the exact time window | Packet-loss and CRC telemetry per device |
+| Uncalibrated, motion-gated SpO₂ estimate | Session analytics: ECG vs PPG HR, SpO₂ distribution, activity / quality | Sessions and scenarios |
+| ECG quality and lead-off state | CSV / JSON export with provenance + synthetic label | Event acknowledgement with audit log |
+| Activity, orientation, heuristic fall events | Configurable raw-data retention | Responsive light/dark UI, mobile navigation |
 
-# 🧭 System Architecture
+---
 
-``` mermaid
+## 🧭 System architecture
+
+```mermaid
 flowchart LR
-    W["Wristband<br/>STM32G431<br/>ECG + PPG + IMU"]
-    B["nRF52840<br/>BLE UART Bridge"]
+    subgraph HW["⌚ Wristband (MESP_lab firmware)"]
+        direction TB
+        SENS["🫀 AD8232 ECG · 1 kHz<br/>🩸 MAX30102 PPG · 25 Hz<br/>🧭 MPU-6886 IMU · 1 kHz"]:::hw
+        MCU["🔲 STM32G431<br/>DMA · framing · CRC"]:::hw
+        NRF["📶 nRF52840<br/>BLE UART bridge"]:::ble
+        SENS --> MCU -- "UART 1 Mbaud<br/>RTS/CTS" --> NRF
+    end
 
-    W -->|"UART / framed bytes"| B
+    GW["📡 mesp-gateway<br/>BLE · serial · replay · simulator<br/>deframe · link state · backoff"]:::gw
 
-    B --> G["Gateway<br/>BLE / Serial / Replay / Simulator"]
+    subgraph API["⚙️ FastAPI ingest pipeline"]
+        direction TB
+        P1["🔍 CRC + schema"]:::api --> P2["🔢 sequence · loss · dedup"]:::api --> P3["⏱️ timestamp reconstruction"]:::api --> P4["📐 device-profile decode"]:::api --> P5["🧠 DSP"]:::dsp --> P6["🚨 event engine"]:::ev
+    end
 
-    G -->|"WebSocket<br/>raw frames"| A["FastAPI API"]
+    DB[("🐘 PostgreSQL<br/>1 s Float32 chunks")]:::db
+    UI["🖥️ React console<br/>canvas waveforms"]:::ui
 
-    A --> P["Protocol + CRC"]
-    P --> S["Sequence / Duplicate Tracking"]
-    S --> T["Timestamp Reconstruction"]
-    T --> D["Decode + Device Profile"]
-    D --> Q["1 s Buffer / Storage"]
+    NRF -- "BLE NUS" --> GW -- "WebSocket<br/>raw frames" --> API
+    P4 --> DB
+    P6 --> DB
+    API -- "live WebSocket" --> UI
+    DB -- "REST history" --> UI
 
-    Q --> DB[("PostgreSQL")]
-    Q --> DSP["DSP Pipeline"]
-    DSP --> E["Event Engine"]
-
-    A --> WS["Live WebSocket"]
-    WS --> UI["React Console"]
-    DB --> UI
-    E --> UI
+    classDef hw fill:#03234B,stroke:#011428,color:#fff
+    classDef ble fill:#0082FC,stroke:#005BB5,color:#fff
+    classDef gw fill:#6A1B9A,stroke:#4A148C,color:#fff
+    classDef api fill:#009688,stroke:#00695C,color:#fff
+    classDef dsp fill:#E65100,stroke:#BF360C,color:#fff
+    classDef ev fill:#C62828,stroke:#B71C1C,color:#fff
+    classDef db fill:#336791,stroke:#1E3F5A,color:#fff
+    classDef ui fill:#20232A,stroke:#61DAFB,color:#61DAFB
+    style HW fill:transparent,stroke:#03234B,stroke-dasharray:5 5
+    style API fill:transparent,stroke:#009688,stroke-dasharray:5 5
 ```
 
 ### One code path for hardware and simulation
 
-A core architectural rule is:
+> **Rule:** hardware, recordings and simulation must enter the *same* downstream pipeline.
 
-> **Hardware, recordings, and simulation must enter the same downstream
-> pipeline.**
+```mermaid
+flowchart LR
+    BLE["📶 Real BLE"]:::src --> BYTES
+    SER["🔌 USB / serial"]:::src --> BYTES
+    REP["📼 .mesprec replay"]:::src --> BYTES
+    SIM["🧪 Byte-exact simulator"]:::src --> BYTES
+    BYTES["🔢 Raw byte stream"]:::bytes --> GW["📡 Same gateway"]:::same --> ING["⚙️ Same ingest"]:::same --> DSP["🧠 Same DSP + events"]:::same --> WEB["🖥️ Same console"]:::same
 
-``` mermaid
+    classDef src fill:#37474F,stroke:#263238,color:#fff
+    classDef bytes fill:#F9A825,stroke:#F57F17,color:#000
+    classDef same fill:#2E7D32,stroke:#1B5E20,color:#fff
+```
+
+The demo is not a separate fake application. The simulator produces firmware-compatible frames that exercise the same gateway, ingest, storage, analysis, event and WebSocket paths as the real wristband.
+
+---
+
+## 🧬 Protocol engineering
+
+The wire protocol was **read from the firmware source** (`nrf_link.c` in MESP_lab) and verified byte-for-byte — not guessed from documentation.
+
+```mermaid
+flowchart LR
+    M["AA 55<br/>magic · 2 B"]:::magic --> V["version<br/>1 B"]:::hdr --> T["type<br/>1 B"]:::hdr --> S["seq<br/>u8 · 1 B<br/>shared by all types"]:::hdr --> L["length<br/>LE16 · ≤ 1008"]:::hdr --> PL["payload<br/>n B"]:::pay --> C["CRC-16/CCITT-FALSE<br/>LE · over bytes 2…6+n"]:::crc
+
+    classDef magic fill:#C62828,stroke:#B71C1C,color:#fff
+    classDef hdr fill:#1565C0,stroke:#0D47A1,color:#fff
+    classDef pay fill:#2E7D32,stroke:#1B5E20,color:#fff
+    classDef crc fill:#6A1B9A,stroke:#4A148C,color:#fff
+```
+
+| Type | Value | Payload | Firmware batching |
+|---|---|---|---|
+| `PPG_RAW` | `0x01` | n × 6 B: red(3) ir(3), 18-bit big-endian | ~1 sample/frame at 25 Hz |
+| `IMU_RAW` | `0x02` | n × 14 B: ax ay az temp gx gy gz, int16 BE | ~5 records/frame |
+| `STATUS` | `0x03` | ASCII | not emitted by current firmware |
+| `TEXT` | `0x04` | ASCII | `boot:` line once, `stats …` every 1 s |
+| `ECG_RAW` | `0x05` | n × 2 B: 12-bit ADC, uint16 BE | 32 samples/frame (DMA half-buffer) |
+
+The wire carries **no timestamps, sample rates, full-scale ranges or device ID** — these come from a pinned **device profile**, and a profile mismatch detected from the `boot:` line raises an event.
+
+### 🔬 Firmware-derived golden vectors
+
+```mermaid
+flowchart LR
+    F["📄 Firmware nrf_link.c<br/>(copied verbatim)"]:::fw --> H["🛠️ Host build<br/>packages/firmware-harness"]:::h --> V["🎯 9 golden byte vectors"]:::v
+    V --> PY["🐍 Python decoder · 35 tests"]:::py
+    V --> TS["🟦 TypeScript decoder · 7 tests"]:::ts
+    PY --> OK["✅ byte-for-byte conformance"]:::ok
+    TS --> OK
+
+    classDef fw fill:#03234B,stroke:#011428,color:#fff
+    classDef h fill:#455A64,stroke:#263238,color:#fff
+    classDef v fill:#6A1B9A,stroke:#4A148C,color:#fff
+    classDef py fill:#3776AB,stroke:#1E4E7A,color:#fff
+    classDef ts fill:#3178C6,stroke:#1E4E8C,color:#fff
+    classDef ok fill:#2E7D32,stroke:#1B5E20,color:#fff
+```
+
+Compiling the real firmware framing code resolved two details the documentation left ambiguous: **CRC byte order**, and that **one sequence counter is shared across all frame types**.
+
+---
+
+## 🛡️ Loss, corruption and duplicate handling
+
+> A wearable stream cannot assume *"if bytes arrived, the data is correct."*
+
+```mermaid
+flowchart LR
+    A["📥 Byte stream<br/>(split across 64 B BLE reads)"]:::in --> B["🔎 Deframe / resync<br/>skip 1 byte on false sync"]:::st --> C{"CRC ok?"}:::chk
+    C -- "no" --> CE["crc_errors++"]:::bad
+    C -- "yes" --> D["🔢 Sequence tracking<br/>u8 gaps → exact loss count"]:::st --> E{"Duplicate?"}:::chk
+    E -- "yes" --> DU["dropped"]:::bad
+    E -- "no" --> F["📐 Profile decode"]:::st --> G["⏱️ StreamClock"]:::st --> H["✅ Accepted samples"]:::ok
+
+    classDef in fill:#37474F,stroke:#263238,color:#fff
+    classDef st fill:#1565C0,stroke:#0D47A1,color:#fff
+    classDef chk fill:#F9A825,stroke:#F57F17,color:#000
+    classDef bad fill:#C62828,stroke:#B71C1C,color:#fff
+    classDef ok fill:#2E7D32,stroke:#1B5E20,color:#fff
+```
+
+- On a CRC mismatch the deframer skips **one byte**, never the claimed length — so an embedded `AA 55` can't swallow the frames that follow.
+- Tracked per device: CRC failures, sequence gaps, duplicates, timestamp gaps, disconnects, stale streams and ingest latency.
+- Injected packet loss in the simulator is **counted exactly** from sequence gaps (tested).
+
+---
+
+## ⏱️ The timestamp problem
+
+> **How do you put a 1 kHz stream on a stable timeline when the device sends no timestamps and packets arrive over an unreliable link?**
+
+Each stream (`ecg`, `ppg`, `imu`) gets its own `StreamClock`:
+
+```mermaid
 flowchart TB
-    BLE["Real BLE"] --> BYTES["Raw byte stream"]
-    SERIAL["USB / Serial"] --> BYTES
-    REPLAY[".mesprec replay"] --> BYTES
-    SIM["Byte-exact simulator"] --> BYTES
+    R["📨 Batch of n samples arrives<br/>at host time rx"]:::in --> FIRST{"First batch?"}:::chk
+    FIRST -- "yes" --> AN["⚓ Anchor at rx − n/fs<br/>(samples were acquired before sending)"]:::st
+    FIRST -- "no" --> LATE{"Later than expected<br/>by > 0.35 s?"}:::chk
+    LATE -- "yes" --> GAP["✂️ Declare gap · re-anchor forward<br/>waveform breaks (gap: true)"]:::bad
+    LATE -- "no" --> EARLY{"Earlier by > 0.35 s?"}:::chk
+    EARLY -- "yes" --> SK["Count skew · never move time backwards"]:::warn
+    EARLY -- "no" --> CONT["➡️ Continue at exact nominal spacing<br/>drift: next_t += 0.005 · (observed − expected)"]:::ok
+    AN --> OUT["🕒 Timestamped samples"]:::out
+    GAP --> OUT
+    SK --> OUT
+    CONT --> OUT
 
-    BYTES --> GW["Gateway"]
-    GW --> API["Same ingest path"]
-    API --> DSP["Same DSP"]
-    DSP --> WEB["Same console"]
+    classDef in fill:#37474F,stroke:#263238,color:#fff
+    classDef chk fill:#F9A825,stroke:#F57F17,color:#000
+    classDef st fill:#1565C0,stroke:#0D47A1,color:#fff
+    classDef bad fill:#C62828,stroke:#B71C1C,color:#fff
+    classDef warn fill:#E65100,stroke:#BF360C,color:#fff
+    classDef ok fill:#2E7D32,stroke:#1B5E20,color:#fff
+    classDef out fill:#6A1B9A,stroke:#4A148C,color:#fff
 ```
 
-This means a demo is not a separate fake application.
+Sample spacing is exact at the nominal rate, crystal drift between the STM32 and the host is absorbed slowly without jitter, stored data never overlaps, and sequence gaps stay separate from timestamp gaps. The documented limit: absolute time is only as good as BLE delivery latency, which is **not yet measured** ([ADR-005](docs/decisions/ADR-005-timestamps.md), [timestamps.md](docs/architecture/timestamps.md)).
 
-The simulator produces firmware-compatible frames and exercises the same
-gateway, ingest, storage, analysis, event, and WebSocket paths used by
-real hardware.
+---
 
-------------------------------------------------------------------------
+## 🧠 Signal processing
 
-# 🔌 Hardware
+MESP **recomputes derived values server-side** instead of trusting untransmitted firmware debug output.
 
-The software platform is built around the existing MESP lab hardware.
-
-  -----------------------------------------------------------------------
-  Component               Device                  Role
-  ----------------------- ----------------------- -----------------------
-  MCU                     **STM32G431KB**         acquisition / framing
-
-  ECG                     **AD8232**              single-lead ECG
-
-  PPG                     **MAX30102**            red/IR
-                                                  photoplethysmography
-
-  IMU                     **MPU-6886**            acceleration +
-                                                  gyroscope
-
-  BLE bridge              **nRF52840 / XIAO**     UART ↔ BLE NUS
-
-  Planned hardware        MAX30205 / MAX17048 /   not present in current
-                          SSD1306                 firmware
-  -----------------------------------------------------------------------
-
-Current acquisition configuration documented by the firmware includes:
-
--   ECG: **1 kHz**
--   PPG: **25 Hz effective stream**
--   IMU: **1 kHz**
--   BLE transport through Nordic UART Service
-
-The platform does **not** claim support for hardware that the current
-firmware does not transmit.
-
-------------------------------------------------------------------------
-
-# 🧬 Protocol Engineering
-
-One of the strongest parts of the project is that the wire protocol was
-**not guessed from documentation**.
-
-The protocol implementation is derived directly from the firmware.
-
-### Link frame
-
-``` text
-AA 55
-│  │
-│  └── sync
-└───── sync
-
-version
-type
-seq
-len (LE16)
-payload
-CRC-16/CCITT-FALSE (LE)
-```
-
-Current protocol types include:
-
-``` text
-PPG
-IMU
-STATUS
-TEXT
-ECG
-```
-
-Maximum payload:
-
-``` text
-1008 bytes
-```
-
-------------------------------------------------------------------------
-
-## 🔬 Firmware-derived golden vectors
-
-The repository contains a host build of the firmware's actual
-`nrf_link.c`.
-
-``` mermaid
-flowchart LR
-    F["Firmware nrf_link.c"] --> H["Host firmware harness"]
-    H --> V["Golden byte vectors"]
-
-    V --> PY["Python decoder tests"]
-    V --> TS["TypeScript decoder tests"]
-
-    PY --> C["Conformance"]
-    TS --> C
-```
-
-The harness calls the real firmware framing functions and captures the
-bytes that would be transmitted over UART.
-
-This resolved details that documentation alone left ambiguous,
-including:
-
--   CRC byte order
--   the sequence counter being shared across frame types
-
-The Python and TypeScript decoders are required to match those vectors
-byte-for-byte.
-
-------------------------------------------------------------------------
-
-# 🛡️ Loss, corruption & duplicate handling
-
-A wearable stream cannot simply assume:
-
-> "If bytes arrived, the data is correct."
-
-MESP validates the stream at multiple layers.
-
-``` mermaid
-flowchart LR
-    A["Incoming frame"] --> B["Deframe / resync"]
-    B --> C["CRC validation"]
-    C --> D["Sequence tracking"]
-    D --> E["Duplicate detection"]
-    E --> F["Device-profile decode"]
-    F --> G["Timestamp reconstruction"]
-    G --> H["Accepted sample"]
-```
-
-The system tracks:
-
--   CRC failures
--   sequence gaps
--   duplicates
--   timestamp gaps
--   disconnects
--   stale streams
--   ingest latency
-
-Injected packet loss is counted exactly from sequence gaps in the
-simulator tests.
-
-------------------------------------------------------------------------
-
-# ⏱️ The timestamp problem
-
-The device protocol does not provide device timestamps for samples.
-
-That creates a non-obvious systems problem:
-
-> **How do you put a 1 kHz stream on a stable timeline when packets
-> arrive over an unreliable link?**
-
-MESP uses a per-stream `StreamClock`.
-
-``` mermaid
+```mermaid
 flowchart TB
-    R["Host receive time"] --> A["Anchor stream"]
-    A --> N["Nominal sample spacing"]
-    N --> C["Slow drift correction"]
-    C --> G{"Gap / lateness?"}
-    G -->|No| O["Emit timestamp"]
-    G -->|Yes| B["Declare gap"]
-    B --> O
+    subgraph ECG["🫀 ECG · 1 kHz"]
+        direction LR
+        E1["0.5–40 Hz Butterworth"]:::ecg --> E2["50 Hz notch"]:::ecg --> E3["Pan-Tompkins:<br/>derivative · square ·<br/>integrate · adaptive threshold"]:::ecg --> E4["R-peaks → RR<br/>HR · irregularity"]:::ecgo
+    end
+    subgraph PPG["🩸 PPG · red / IR"]
+        direction LR
+        P1["0.5–5 Hz filter"]:::ppg --> P2["pulse peaks → pulse rate"]:::ppgo
+        P3["AC / DC → ratio of ratios"]:::ppg --> P4{"motion or low<br/>perfusion?"}:::gate
+        P4 -- "no" --> P5["SpO₂ estimate<br/>(uncalibrated)"]:::ppgo
+        P4 -- "yes" --> P6["withheld"]:::hold
+    end
+    subgraph IMU["🧭 IMU · 1 kHz"]
+        direction LR
+        I1["free fall"]:::imu --> I2["impact / saturation"]:::imu --> I3["stillness"]:::imu --> I4["orientation change"]:::imu --> I5["fall event<br/>(heuristic)"]:::imuo
+    end
+    ECG ~~~ PPG ~~~ IMU
+
+    classDef ecg fill:#2E7D32,stroke:#1B5E20,color:#fff
+    classDef ecgo fill:#1B5E20,stroke:#0D3311,color:#fff
+    classDef ppg fill:#6A1B9A,stroke:#4A148C,color:#fff
+    classDef ppgo fill:#4A148C,stroke:#2A0B50,color:#fff
+    classDef gate fill:#F9A825,stroke:#F57F17,color:#000
+    classDef hold fill:#78909C,stroke:#455A64,color:#fff
+    classDef imu fill:#E65100,stroke:#BF360C,color:#fff
+    classDef imuo fill:#BF360C,stroke:#8C2700,color:#fff
+    style ECG fill:transparent,stroke:#2E7D32,stroke-dasharray:5 5
+    style PPG fill:transparent,stroke:#6A1B9A,stroke-dasharray:5 5
+    style IMU fill:transparent,stroke:#E65100,stroke-dasharray:5 5
 ```
 
-Design constraints:
+- **ECG:** waveform, R-peaks, HR, RR intervals, beat-interval irregularity, quality and a lead-off heuristic. **HR is withheld when signal quality is insufficient.**
+- **PPG:** in the exercise scenario, wrist PPG locks onto arm-swing cadence (~150 bpm). Without motion-artefact cancellation, a confident SpO₂ number would be more misleading than none — so **under motion or low perfusion the estimate is withheld**.
+- **IMU:** acceleration magnitude, activity level, orientation, die temperature and a fall heuristic that handles accelerometer saturation. Explicitly **not clinically validated**.
 
--   samples are placed at exact nominal spacing
--   host receive time anchors the stream
--   clock drift is corrected slowly
--   data is never moved backwards in time
--   lateness above the documented threshold declares a gap
--   sequence gaps remain separate from timestamp gaps
+### 🚨 Event engine — signal processing is separate from event policy
 
-This is documented in ADR-005 and the timestamp architecture notes.
-
-------------------------------------------------------------------------
-
-# 🧪 Byte-exact simulator & replay
-
-The simulator is not random JSON pretending to be a device.
-
-It produces **firmware-compatible framed bytes**.
-
-Ten deterministic scenarios cover:
-
-``` text
-normal
-exercise
-poor ECG contact
-low SpO₂
-fall
-irregular rhythm
-BLE disconnect
-low battery
-packet corruption
-packet loss
-```
-
-Recordings use `.mesprec` and can be replayed at different speeds.
-
-``` mermaid
+```mermaid
 flowchart LR
-    S["Scenario definition"] --> F["Firmware-compatible frame generator"]
-    F --> R[".mesprec recording"]
-    R --> G["Replay source"]
-    G --> GW["Same gateway"]
-    GW --> API["Same API"]
-    API --> UI["Same UI"]
+    S["📈 Derived signals"]:::s --> R["📏 Rules<br/>HR · SpO₂ · lead-off · quality · irregular RR<br/>packet loss · CRC · falls · link"]:::r --> H["⏳ Hysteresis / persistence<br/>no alarm flapping"]:::h --> E["🚨 Event<br/>severity · snapshot · wording"]:::e
+    E --> A["✅ Acknowledgement"]:::a
+    E --> WS["⚡ Live WebSocket"]:::w
+    E --> TL["📍 Timeline marker<br/>click-through to the exact window"]:::t
+
+    classDef s fill:#1565C0,stroke:#0D47A1,color:#fff
+    classDef r fill:#37474F,stroke:#263238,color:#fff
+    classDef h fill:#F9A825,stroke:#F57F17,color:#000
+    classDef e fill:#C62828,stroke:#B71C1C,color:#fff
+    classDef a fill:#2E7D32,stroke:#1B5E20,color:#fff
+    classDef w fill:#00838F,stroke:#006064,color:#fff
+    classDef t fill:#6A1B9A,stroke:#4A148C,color:#fff
 ```
 
-This gives the project:
+---
 
-**determinism + reproducibility + hardware-independent development.**
+## 🧪 Byte-exact simulator, replay and gateway
 
-------------------------------------------------------------------------
+The simulator is not random JSON pretending to be a device — it emits **firmware-compatible framed bytes** with the firmware's batching and rates. **Ten deterministic scenarios**, each of which asserts the events it should raise (and `normal` asserts none):
 
-# 📡 Gateway
+| 🟢 Physiology | 🟠 Sensor & device | 🔴 Link faults |
+|---|---|---|
+| `normal` · `exercise` · `irregular rhythm` · `low SpO₂` · `fall` | `poor ECG contact` · `low battery` | `BLE disconnect` · `packet corruption` · `packet loss` |
 
-The gateway normalizes multiple input sources behind one asynchronous
-interface:
+Recordings use the `.mesprec` format and replay at any speed, with seek and loop — **determinism + reproducibility + hardware-independent development**.
 
-``` text
-BleSource
-SerialSource
-ReplaySource
-SimulatorSource
-```
+The **gateway** normalises `BleSource`, `SerialSource`, `ReplaySource` and `SimulatorSource` behind one async interface, forwards only valid frames, and tracks link state:
 
-Each can emit:
-
-``` text
-data
-up
-down
-```
-
-The link state machine tracks:
-
-``` mermaid
+```mermaid
 stateDiagram-v2
+    direction LR
     [*] --> DISCONNECTED
-    DISCONNECTED --> CONNECTING
+    DISCONNECTED --> CONNECTING: equal-jitter<br/>exponential backoff
     CONNECTING --> CONNECTED
-    CONNECTED --> STREAMING
-    STREAMING --> STALE
-    STALE --> STREAMING
-    STREAMING --> DISCONNECTED
-    STALE --> DISCONNECTED
-    CONNECTING --> DISCONNECTED
-    DISCONNECTED --> CONNECTING
+    CONNECTING --> DISCONNECTED: failed
+    CONNECTED --> STREAMING: valid frames
+    CONNECTED --> STALE: no valid frame
+    CONNECTED --> DISCONNECTED
+    STREAMING --> STALE: no valid frame<br/>for stale_after s
+    STALE --> STREAMING: data resumes
+    STREAMING --> DISCONNECTED: link lost
+    STALE --> DISCONNECTED: timeout
+
+    classDef off fill:#C62828,stroke:#B71C1C,color:#fff
+    classDef mid fill:#F9A825,stroke:#F57F17,color:#000
+    classDef on fill:#2E7D32,stroke:#1B5E20,color:#fff
+    classDef stale fill:#E65100,stroke:#BF360C,color:#fff
+    class DISCONNECTED off
+    class CONNECTING,CONNECTED mid
+    class STREAMING on
+    class STALE stale
 ```
 
-Reconnect uses equal-jitter exponential backoff.
+During API outages the WebSocket uplink keeps a **bounded drop-oldest backlog**, and a graceful shutdown sends `bye` so normal disconnects aren't mistaken for failures.
 
-The WebSocket uplink maintains a bounded drop-oldest backlog during API
-outages.
+---
 
-A graceful shutdown sends `bye` so normal disconnects are not mistaken
-for failures.
+## 💾 Storage design
 
-------------------------------------------------------------------------
+Raw physiological streams are **not** stored as one row per sample. Each stream is sliced into 1-second Float32 chunks:
 
-# 🧠 Signal Processing
+```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#E65100"}}}}%%
+xychart-beta
+    title "Raw-sample database writes per device per second"
+    x-axis ["One row per sample", "1 s Float32 chunk per stream"]
+    y-axis "rows / s" 0 --> 2200
+    bar [2000, 3]
+```
 
-MESP recomputes derived values server-side rather than trusting
-untransmitted firmware debug outputs.
+- ~2,000 raw samples/s/device → **3 rows/s** for the three primary streams — chosen deliberately instead of adding TimescaleDB ([ADR-004](docs/decisions/ADR-004-storage.md)).
+- Range queries return **min/max envelopes**, so ECG peaks stay visible when zoomed out.
+- Configurable retention; deleting a device cascades through sessions, samples, vitals and events.
 
-## ECG
+## ⚡ Live console
 
-Pipeline:
-
-``` mermaid
+```mermaid
 flowchart LR
-    A["1 kHz ECG"] --> B["0.5–40 Hz Butterworth"]
-    B --> C["50 Hz notch"]
-    C --> D["R-peak processing"]
-    D --> E["RR intervals"]
-    E --> F["HR / irregularity"]
+    WS["⚡ Live WebSocket"]:::a --> C["🔌 Live client<br/>state machine"]:::b --> RB["🧮 Float32 ring buffers<br/>(outside React state)"]:::c --> RAF["🎞️ requestAnimationFrame"]:::d --> DEC["📉 Per-pixel min/max<br/>decimation"]:::e --> CAN["🖼️ Canvas"]:::f
+
+    classDef a fill:#00838F,stroke:#006064,color:#fff
+    classDef b fill:#1565C0,stroke:#0D47A1,color:#fff
+    classDef c fill:#6A1B9A,stroke:#4A148C,color:#fff
+    classDef d fill:#E65100,stroke:#BF360C,color:#fff
+    classDef e fill:#F9A825,stroke:#F57F17,color:#000
+    classDef f fill:#2E7D32,stroke:#1B5E20,color:#fff
 ```
 
-The project uses a Pan-Tompkins-style approach:
+250 Hz ECG display with gap breaks, pause, zoom, pan, fullscreen and keyboard control. The UI models **six explicit data states** — `LIVE` · `STALE` · `DISCONNECTED` · `LOADING` · `ERROR` · `NO DATA` — so stale numbers are never shown as if they were current.
 
--   band-pass filtering
--   derivative
--   squaring
--   moving integration
--   adaptive threshold
--   peak refinement
--   de-duplication across windows
+**Accessibility:** axe WCAG 2 A/AA checks in E2E, light + dark themes — **zero serious/critical violations** on the scanned pages; keyboard controls, reduced-motion support, responsive down to 390 px.
 
-### ECG outputs
+---
 
--   waveform
--   R-peaks
--   heart rate estimate
--   RR intervals
--   beat-interval irregularity pattern
--   ECG quality
--   lead-off heuristic
+## 📈 Performance
 
-HR is withheld when signal quality is insufficient.
+Load tests on a **2-vCPU** x86_64 box: Python 3.13, PostgreSQL 16 and the load generator on the same machine, single API worker, synthetic `normal` scenario (~257 frames/s per device). Details: [`docs/testing/load-results.md`](docs/testing/load-results.md).
 
-------------------------------------------------------------------------
+| Test | Result |
+|---|---|
+| **Max ingest** — 1 device pushes 60 s of data as fast as accepted | 15,436 frames in 2.42 s → **~6,400 frames/s**, 24.8× real time, **0 lost** |
+| **8 devices**, real-time pace, 30 s | all 61,744 frames accounted for · p50 **31.9 ms** · worst p95 **176.5 ms** |
+| **16 devices**, real-time pace, 30 s | all frames accounted for · p50 **41.3 ms** · worst p95 **336 ms** |
+| **32 devices**, real-time pace, 30 s | all frames accounted for, but **saturated** · p50 5.6 s · p95 14.8 s |
 
-## PPG
-
-``` mermaid
-flowchart LR
-    A["IR / Red PPG"] --> B["0.5–5 Hz filtering"]
-    B --> C["Pulse peaks"]
-    C --> D["Pulse rate"]
-    A --> E["AC/DC"]
-    E --> F["Ratio of ratios"]
-    F --> G["SpO₂ estimate"]
-    IMU["Motion"] --> G
+```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#1565C0, #C62828"}}}}%%
+xychart-beta
+    title "Ingest latency at real-time pace (ms) — 32 devices saturates"
+    x-axis ["8 devices", "16 devices"]
+    y-axis "ms" 0 --> 400
+    bar [176.5, 336]
+    line [31.9, 41.3]
 ```
 
-The SpO₂ calculation is explicitly **uncalibrated**.
+<sub>🟦 bars = worst p95 · 🟥 line = p50</sub>
 
-More importantly, it is motion-gated.
+**Takeaway:** one API process sustains **~16 devices in real time with sub-second p95** on 2 vCPUs. The measured bottleneck is single-threaded Python DSP + per-second PostgreSQL inserts; the scale-out path (DSP workers, Redis/NATS fan-out) is in [ADR-003](docs/decisions/ADR-003-in-process-live-hub.md). Ingest latency excludes the BLE air interface, which is not yet measured.
 
-During the exercise scenario, wrist PPG can lock onto arm-swing cadence.
-Without motion-artefact cancellation, displaying a confident SpO₂ value
-would be more misleading than withholding it.
+---
 
-Therefore:
+## 🧪 Correctness & testing
 
-> **Under sufficient motion or low perfusion, the estimate is
-> withheld.**
+**122 automated tests** — and they deliberately **cross process and language boundaries**.
 
-------------------------------------------------------------------------
-
-## IMU
-
-The platform derives:
-
--   acceleration magnitude
--   activity level
--   orientation
--   IMU temperature
--   heuristic fall events
-
-The fall heuristic combines:
-
-``` text
-free fall
-   ↓
-impact / saturation
-   ↓
-stillness
-   ↓
-orientation change
-   ↓
-event
+```mermaid
+pie showData
+    title 122 automated tests by layer
+    "Protocol · Python" : 35
+    "API (SQLite + PostgreSQL)" : 25
+    "Simulator" : 19
+    "Web unit" : 11
+    "Browser E2E" : 10
+    "Gateway" : 9
+    "Protocol · TypeScript" : 7
+    "Replay" : 4
+    "Cross-process integration" : 2
 ```
 
-It is explicitly **not clinically validated**.
+| Layer | What it proves | Count |
+|---|---|---|
+| Firmware conformance | Golden frames regenerated from the vendored `nrf_link.c` | 9 vectors |
+| Protocol (Python) | CRC, every vector, encoder round-trip, chunking, resync, false sync, fuzz | 35 |
+| Protocol (TypeScript) | Same vectors | 7 |
+| Simulator | 10 scenarios valid, determinism, firmware batching/rates, loss/corruption/disconnect accounting | 19 |
+| Replay | Format round-trip, truncation, real-time pacing, speed, seek, loop | 4 |
+| Gateway | Ingest codec, link state machine, backoff, only-valid-frames forwarding | 9 |
+| API | Auth, rate limit, RBAC, keys, end-to-end ingest, **every scenario raises its expected event**, exact loss counting, ack flow, live WS, exports, cascade delete — on **SQLite and PostgreSQL** | 25 |
+| Integration | **Real uvicorn process + real `mesp-gateway` process** over WebSocket (sim and replay), graceful `bye` | 2 |
+| Web unit | Ring buffer, live-client state machine, freshness mapping, components | 11 |
+| Browser E2E | Demo draws, keyboard controls, scenario → event → ack → timeline, export labelling, **axe WCAG 2 A/AA**, mobile layout | 10 |
 
-------------------------------------------------------------------------
+> All physiological expectations are tested against **simulated data**: they prove the pipeline computes what it was designed to compute on known inputs — not accuracy on real people.
 
-# 🚨 Event Engine
+---
 
-MESP separates **signal processing** from **event policy**.
+## 🔐 Security & privacy
 
-``` mermaid
-flowchart TB
-    S["Derived signals"] --> R["Rules"]
-    R --> H["Hysteresis / persistence"]
-    H --> E["Event"]
-    E --> N["Severity + snapshot + wording"]
-    N --> A["Acknowledgement"]
-    E --> WS["Live WebSocket"]
-    E --> TL["Timeline marker"]
-```
+Physiological recordings become sensitive health data once they belong to real people, so they are treated as security assets alongside device keys, credentials, the JWT secret and the audit trail.
 
-Events include conditions around:
+| Area | Controls |
+|---|---|
+| 🔑 Accounts | bcrypt hashing · IP + email sliding-window rate limits · short-lived HS256 JWTs in `sessionStorage` · server-side RBAC |
+| 📟 Devices | Random 256-bit per-device ingest keys, stored only as SHA-256 hashes |
+| ⚡ WebSocket | Token sent in a message, never in the URL · bounded live queues |
+| 🧱 Input | Strict frame parsing · server-side CRC re-validation · Pydantic validation · upload size limits |
+| 🌐 HTTP | Generic 500s · security headers · CSP in nginx |
+| 📜 Accountability | Audit log (logins, user and device changes, key rotation, deletions, exports) · synthetic-data provenance through exports |
+| 🕶️ Privacy | No names, dates of birth or identity fields required · configurable raw-data retention · cascading deletes |
 
--   heart rate
--   SpO₂ estimate
--   lead-off
--   ECG quality
--   irregular RR patterns
--   battery state
--   packet loss
--   CRC errors
--   falls
--   link transitions
+**Documented gaps** ([threat model](docs/security/threat-model.md)): TLS terminates at a reverse proxy; no refresh tokens or server-side revocation; in-process rate limiting; no application-level encryption at rest; BLE uses an open Nordic UART Service without bonding.
 
-Sustained conditions use hysteresis so a threshold crossing does not
-cause alarm flapping.
+---
 
-Every event stores context and can navigate directly to the relevant
-point on the historical timeline.
+## 🚀 Quick start
 
-------------------------------------------------------------------------
+**Local development** (Python ≥ 3.11, Node.js; SQLite is enough for the demo):
 
-# 💾 Storage Design
-
-Raw physiological streams are not stored as one database row per sample.
-
-Instead:
-
-``` text
-~2,000 raw samples/sec/device
-            ↓
-       1-second slice
-            ↓
-   Float32 chunk / stream
-            ↓
-      PostgreSQL row
-```
-
-This reduces raw-sample inserts to approximately:
-
-> **3 rows/device/second**
-
-for the three primary streams.
-
-The design was chosen deliberately instead of introducing TimescaleDB
-unnecessarily.
-
-Range queries use min/max envelopes so waveform peaks remain visible
-when zoomed out.
-
-Retention is configurable, with raw samples deleted after the configured
-retention period.
-
-------------------------------------------------------------------------
-
-# ⚡ Live Console
-
-The browser is designed around high-frequency waveform data without
-putting every sample into React state.
-
-``` mermaid
-flowchart LR
-    WS["Live WebSocket"] --> C["Live client"]
-    C --> RB["Float32 ring buffers"]
-    RB --> RAF["requestAnimationFrame"]
-    RAF --> DEC["Min/max decimation"]
-    DEC --> CAN["Canvas"]
-```
-
-This enables:
-
--   250 Hz ECG display
--   ring-buffered samples
--   per-pixel min/max decimation
--   gap visualization
--   pause
--   zoom
--   pan
--   fullscreen
--   keyboard control
-
-The UI explicitly models six data states:
-
-``` text
-LIVE
-STALE
-DISCONNECTED
-LOADING
-ERROR
-NO DATA
-```
-
-That is preferable to showing stale numbers as though they were current
-measurements.
-
-------------------------------------------------------------------------
-
-# 📊 History & analytics
-
-The history interface combines:
-
--   zoomable timelines
--   sensor envelopes
--   event markers
--   event click-through
--   session analytics
--   ECG vs PPG HR comparison
--   SpO₂ distributions
--   activity/quality breakdown
--   raw-data export
-
-<p align="center">
-<img src="docs/images/history_event.png" width="75%" alt="History timeline with event click-through">
-</p>
-
-------------------------------------------------------------------------
-
-# 🧪 Correctness & Testing
-
-The project contains **122 automated tests** across protocol,
-simulation, replay, gateway, API, integration, frontend unit tests, and
-browser E2E.
-
-  Layer                         Coverage
-  --------------------------- ----------
-  Protocol --- Python             **35**
-  Protocol --- TypeScript          **7**
-  Simulator                       **19**
-  Replay                           **4**
-  Gateway                          **9**
-  API                             **25**
-  Cross-process integration        **2**
-  Web unit                        **11**
-  Browser E2E                     **10**
-  **Total**                      **122**
-
-### The important part: tests cross boundaries
-
-``` mermaid
-flowchart LR
-    F["Firmware harness"] --> P["Protocol vectors"]
-    P --> G["Gateway"]
-    G --> I["Integration"]
-    I --> A["API"]
-    A --> DB["PostgreSQL"]
-    A --> WS["Live WebSocket"]
-    WS --> W["Browser"]
-    W --> E["Playwright E2E"]
-```
-
-The integration tests use real processes:
-
--   real API
--   real gateway
--   real WebSocket
--   simulator/replay source
-
-rather than mocking the entire transport layer.
-
-------------------------------------------------------------------------
-
-# ♿ Accessibility
-
-The web E2E suite includes axe checks for WCAG 2 A/AA.
-
-The UI also includes:
-
--   keyboard controls
--   reduced-motion support
--   responsive layout
--   mobile navigation
--   explicit status states
--   accessible dialogs/tabs/tooltips
-
-The recorded result is:
-
-> **Zero serious/critical axe violations on the tested key pages and
-> themes.**
-
-------------------------------------------------------------------------
-
-# 📈 Performance
-
-Load tests were performed on:
-
-``` text
-2 vCPU x86_64
-Linux
-Python 3.13
-PostgreSQL 16
-single API worker
-load generator on same machine
-synthetic data
-```
-
-### Maximum ingest
-
-One device pushed 60 seconds of data as fast as accepted:
-
-> **15,436 frames in 2.42 s → \~6,400 frames/s**
-
-with zero lost frames.
-
-### Real-time device simulation
-
-    Devices Result                                      p50 ingest      Worst p95
-  --------- ----------------------------------------- ------------ --------------
-          8 all frames accounted for                       31.9 ms   **176.5 ms**
-         16 all frames accounted for                       41.3 ms     **336 ms**
-         32 all frames accounted for, but saturated          5.6 s     **14.8 s**
-
-### Interpretation
-
-On this 2-vCPU machine:
-
-> **\~16 simulated devices can run in real time with sub-second p95
-> ingest latency.**
-
-At 32 devices, the single API process saturates.
-
-The measured bottleneck is primarily:
-
-``` text
-single-threaded Python DSP
-        +
-per-second PostgreSQL inserts
-```
-
-The repository documents scale-out options rather than hiding the
-saturation point.
-
-------------------------------------------------------------------------
-
-# 🔐 Security & Privacy
-
-Physiological recordings become sensitive health data when they
-correspond to real people.
-
-The platform therefore treats these as security assets:
-
-``` text
-physiological recordings
-device ingest keys
-user credentials
-JWT secret
-audit trail
-```
-
-## Controls
-
--   bcrypt password hashing
--   IP + email sliding-window rate limiting
--   short-lived HS256 JWTs
--   sessionStorage instead of localStorage for JWT
--   WebSocket token sent in a message, not URL
--   random 256-bit per-device ingest keys
--   device keys stored as SHA-256 hashes
--   server-side RBAC
--   strict frame parsing
--   CRC validation
--   Pydantic validation
--   upload size limits
--   generic 500 responses
--   security headers
--   CSP in nginx
--   audit log
--   bounded live queues
--   explicit synthetic-data propagation
-
-### Privacy model
-
-The platform does not require names, dates of birth, or other identity
-fields.
-
-Raw samples are retained for a configurable period and device deletion
-cascades through sessions, samples, vitals, and events.
-
-------------------------------------------------------------------------
-
-# ⚠️ Security gaps --- intentionally documented
-
-The current prototype does **not** claim to solve everything.
-
-Known gaps include:
-
--   TLS termination is expected at a reverse proxy
--   no refresh-token / server-side token revocation system
--   in-process rate limiting
--   application-level encryption-at-rest is not provided
--   BLE currently uses an open Nordic UART Service without bonding
--   automated dependency scanning beyond CI builds is not implemented
-
-These are documented in the threat model and deployment checklist.
-
-------------------------------------------------------------------------
-
-# 🛰️ Real Hardware
-
-The software path can be connected to the physical device.
-
-``` mermaid
-flowchart LR
-    S["STM32G431"] -->|"UART 1 Mbaud<br/>hardware flow control"| N["nRF52840"]
-    N -->|"BLE NUS"| G["mesp-gateway"]
-    G -->|"WebSocket"| A["MESP API"]
-    A --> W["Web Console"]
-```
-
-### Gateway
-
-``` bash
-mesp-gateway \
-  --source ble \
-  --ble-name MESP-Health \
-  --api ws://<api-host>:8000/api/v1/ingest/ws \
-  --record session.mesprec
-```
-
-Without the BLE bridge:
-
-``` bash
-mesp-gateway \
-  --source serial \
-  --port /dev/ttyUSB0 \
-  --baud 1000000
-```
-
-Recordings can later be replayed:
-
-``` bash
-mesp-gateway \
-  --source replay \
-  --file session.mesprec
-```
-
-The complete hardware setup is documented in
-[`docs/deployment/README.md`](docs/deployment/README.md).
-
-------------------------------------------------------------------------
-
-# 🚀 Quick Start
-
-## Local development
-
-Requirements:
-
--   Python ≥ 3.11
--   Node.js / npm
--   PostgreSQL for full deployment, or SQLite for demo development
-
-``` bash
+```bash
 make install
+make dev-api      # API in demo mode on :8000 (SQLite)
+make dev-web      # console on :5173 (proxies /api to :8000)
 ```
 
-Start the API:
+Open `http://localhost:5173` and choose **Explore the demo**.
 
-``` bash
-make dev-api
-```
+**Docker** (PostgreSQL + API + nginx-served web):
 
-Start the web console:
-
-``` bash
-make dev-web
-```
-
-Open:
-
-``` text
-http://localhost:5173
-```
-
-Then choose:
-
-> **Explore the demo**
-
-------------------------------------------------------------------------
-
-## Docker
-
-``` bash
-cp .env.example .env
-```
-
-Set:
-
-``` env
-POSTGRES_PASSWORD=<strong-password>
-MESP_JWT_SECRET=<strong-secret>
-MESP_ADMIN_EMAIL=<admin-email>
-MESP_ADMIN_PASSWORD=<strong-password>
-```
-
-Then:
-
-``` bash
+```bash
+cp .env.example .env     # set POSTGRES_PASSWORD, MESP_JWT_SECRET, MESP_ADMIN_EMAIL, MESP_ADMIN_PASSWORD
 docker compose up --build -d
+# → http://localhost:8080
 ```
 
-Open:
+**Real hardware** — set `NRF_LINK_ENABLED 1` in the MESP_lab firmware, flash the STM32 and the XIAO nRF52840 bridge, then:
 
-``` text
-http://localhost:8080
+```bash
+mesp-gateway --source ble --ble-name MESP-Health \
+  --api ws://<api-host>:8000/api/v1/ingest/ws --record session.mesprec
+
+mesp-gateway --source serial --port /dev/ttyUSB0 --baud 1000000   # without the BLE bridge
+mesp-gateway --source replay --file session.mesprec                # replay a recording
 ```
 
-------------------------------------------------------------------------
+<details>
+<summary><b>🧰 All developer commands</b></summary>
 
-# ☁️ Deployment Architecture
-
-The platform supports a split deployment model:
-
-``` mermaid
-flowchart LR
-    U["Browser"] --> V["Vercel<br/>React static frontend"]
-    V --> R["Render / container host"]
-    R --> API["FastAPI"]
-    API --> PG[("PostgreSQL")]
-```
-
-The API needs long-lived WebSocket connections, a background demo
-simulator, and PostgreSQL, so it belongs on a container host rather than
-a purely serverless frontend platform.
-
-The repository includes configuration for Vercel + Render.
-
-**Important:** the project documentation explicitly states that no
-public deployment was made by the author, so the repository does not
-claim uptime or production-scale hosted performance.
-
-------------------------------------------------------------------------
-
-# 🗂️ Repository
-
-``` text
-Mesp_platform/
-│
-├── apps/
-│   ├── api/                  # FastAPI ingest + DSP + events + REST + WS
-│   └── web/                  # React/TypeScript monitoring console
-│
-├── services/
-│   └── gateway/              # BLE / serial / replay / simulator gateway
-│
-├── packages/
-│   ├── protocol/             # Python + TS wire protocol
-│   ├── types/                # shared TypeScript types
-│   └── ui/                   # design system
-│
-├── simulator/                # byte-exact device simulator
-├── replay/                   # .mesprec record/replay
-├── firmware-harness/         # host build of firmware framing code
-├── database/                 # Alembic migrations
-├── docker/                   # Docker + nginx
-│
-├── tests/
-│   ├── integration/
-│   └── load/
-│
-└── docs/
-    ├── architecture/
-    ├── protocol/
-    ├── security/
-    ├── deployment/
-    ├── testing/
-    ├── decisions/
-    └── REPORT.md
-```
-
-------------------------------------------------------------------------
-
-# 🧰 Developer Commands
-
-``` bash
-# Install
-make install
-
-# Lint
+```bash
+make install      # install everything
+make vectors      # regenerate firmware conformance vectors
 make lint
-
-# Full Python/API/integration tests
-make test-py
-
-# Frontend tests
-make test-web
-
-# Full test target
-make test
-
-# Browser E2E
-make e2e
-
-# Development API
-make dev-api
-
-# Development web
-make dev-web
-
-# Docker deployment
-make up
-
-# Load test
-make load
+make test-py      # protocol · simulator · replay · gateway · API · integration
+make test-web     # frontend unit tests
+make test         # lint + test-py + test-web
+make e2e          # Playwright browser E2E
+make up / down    # docker compose
+make load         # load test
 ```
 
-------------------------------------------------------------------------
+</details>
 
-# 📚 Documentation
+**Deployment model:** static React frontend on Vercel + FastAPI on a container host (Render) with PostgreSQL — the API needs long-lived WebSockets and a background demo simulator, so it can't be serverless. Configs: `vercel.json`, `render.yaml`. No public instance has been deployed. Full guide: [`docs/deployment/README.md`](docs/deployment/README.md).
 
-  ------------------------------------------------------------------------------------------------------------------
-  Topic                               Documentation
-  ----------------------------------- ------------------------------------------------------------------------------
-  System architecture                 [`docs/architecture/overview.md`](docs/architecture/overview.md)
+---
 
-  Timestamp reconstruction            [`docs/architecture/timestamps.md`](docs/architecture/timestamps.md)
+## 🗂️ Repository layout
 
-  Link protocol v1                    [`docs/protocol/link-protocol-v1.md`](docs/protocol/link-protocol-v1.md)
+```text
+Mesp_platform/
+├── apps/
+│   ├── api/                    # FastAPI: ingest pipeline · DSP · events · REST · WebSocket
+│   └── web/                    # React + TypeScript monitoring console
+├── services/gateway/           # BLE / serial / replay / simulator gateway
+├── packages/
+│   ├── protocol/               # Python + TypeScript wire protocol + golden vectors
+│   ├── firmware-harness/       # host build of the firmware's nrf_link.c
+│   ├── types/                  # shared TypeScript types
+│   └── ui/                     # design tokens
+├── simulator/                  # byte-exact device simulator (10 scenarios)
+├── replay/                     # .mesprec record / replay
+├── database/                   # Alembic migrations
+├── docker/                     # Dockerfiles + nginx
+├── tests/                      # integration/ (real processes) · load/
+└── docs/                       # architecture · protocol · decisions · security · testing · deployment · REPORT
+```
 
-  Ingest protocol                     [`docs/protocol/ingest-protocol-v1.md`](docs/protocol/ingest-protocol-v1.md)
+## 📚 Documentation & decisions
 
-  Live WebSocket                      [`docs/protocol/live-websocket-v1.md`](docs/protocol/live-websocket-v1.md)
+| Topic | Doc | | ADR | Decision |
+|---|---|---|---|---|
+| Architecture | [overview](docs/architecture/overview.md) | | [001](docs/decisions/ADR-001-monorepo.md) | Monorepo |
+| Timestamps | [timestamps](docs/architecture/timestamps.md) | | [002](docs/decisions/ADR-002-gateway-forwards-raw-frames.md) | Gateway forwards raw frames |
+| Link protocol | [link-protocol-v1](docs/protocol/link-protocol-v1.md) | | [003](docs/decisions/ADR-003-in-process-live-hub.md) | In-process live hub |
+| Ingest protocol | [ingest-protocol-v1](docs/protocol/ingest-protocol-v1.md) | | [004](docs/decisions/ADR-004-storage.md) | PostgreSQL chunk storage |
+| Live WebSocket | [live-websocket-v1](docs/protocol/live-websocket-v1.md) | | [005](docs/decisions/ADR-005-timestamps.md) | Timestamp reconstruction |
+| REST API | [api](docs/api/README.md) · [openapi.json](docs/api/openapi.json) | | [006](docs/decisions/ADR-006-rendering.md) | Canvas waveform rendering |
+| Threat model | [threat-model](docs/security/threat-model.md) | | [007](docs/decisions/ADR-007-demo-mode.md) | Demo mode |
+| Technical report | [REPORT](docs/REPORT.md) | | [008](docs/decisions/ADR-008-auth.md) | Authentication |
 
-  REST API                            [`docs/api/README.md`](docs/api/README.md)
+---
 
-  Security threat model               [`docs/security/threat-model.md`](docs/security/threat-model.md)
+## 📋 Verified vs. not yet proven
 
-  Deployment                          [`docs/deployment/README.md`](docs/deployment/README.md)
+| ✅ Verified | ⏳ Not yet measured / implemented |
+|---|---|
+| Firmware framing vectors match byte-for-byte | Clinical HR and SpO₂ accuracy |
+| Python + TypeScript protocol conformance | Fall-detection sensitivity / specificity |
+| 122 automated tests, Python on SQLite **and** PostgreSQL | BLE range and air-interface latency |
+| Exact injected-loss accounting | Throughput under real RF conditions |
+| Real-process gateway ↔ API integration | Battery gauge, skin temperature (not in firmware) |
+| ~6,400 frames/s max ingest; 16 devices real time at p95 ≤ 336 ms | Public hosted instance |
+| WCAG 2 A/AA automated checks, both themes | Multi-replica live hub |
+| Synthetic-data provenance through exports | |
 
-  Testing                             [`docs/testing/README.md`](docs/testing/README.md)
-
-  Load results                        [`docs/testing/load-results.md`](docs/testing/load-results.md)
-
-  Technical report                    [`docs/REPORT.md`](docs/REPORT.md)
-
-  Architecture decisions              [`docs/decisions/`](docs/decisions/)
-
-  Security policy                     [`SECURITY.md`](SECURITY.md)
-  ------------------------------------------------------------------------------------------------------------------
-
-------------------------------------------------------------------------
-
-# 🧠 Engineering Decisions Worth Reading
-
-The project includes explicit ADRs for the decisions that shape the
-architecture:
-
-  ADR       Decision
-  --------- -----------------------------
-  ADR-001   Monorepo structure
-  ADR-002   Gateway forwards raw frames
-  ADR-003   In-process live hub
-  ADR-004   PostgreSQL storage strategy
-  ADR-005   Timestamp reconstruction
-  ADR-006   Canvas waveform rendering
-  ADR-007   Demo mode
-  ADR-008   Authentication
-
-These decisions explain **why** the system is shaped this way, not just
-what technologies were selected.
-
-------------------------------------------------------------------------
-
-# 📋 Verified vs. Not Yet Proven
-
-  -----------------------------------------------------------------------
-  Verified                            Not yet measured / implemented
-  ----------------------------------- -----------------------------------
-  Firmware framing vectors match      Clinical HR accuracy
-  byte-for-byte                       
-
-  Python + TypeScript protocol        Clinical SpO₂ accuracy
-  conformance                         
-
-  122 automated tests                 Fall sensitivity/specificity
-
-  Exact injected-loss accounting      BLE range
-
-  Real-process gateway ↔ API          BLE-air end-to-end latency
-  integration                         
-
-  \~6,400 frames/s max ingest on test Hardware throughput under real RF
-  machine                             conditions
-
-  16 simulated devices in real time,  Battery gauge
-  p95 ≤336 ms                         
-
-  WCAG 2 A/AA automated checks        Skin-temperature sensor
-
-  Docker/CI configuration and smoke   Public hosted uptime
-  tests                               
-
-  Synthetic-data provenance through   Production multi-replica live hub
-  exports                             
-  -----------------------------------------------------------------------
-
-This distinction is intentional.
-
-**The README reports what the repository demonstrates, not what would
-make the project sound impressive.**
-
-------------------------------------------------------------------------
-
-# 🎯 What this project demonstrates
-
-**Embedded Systems**
-
-STM32 · ADC · DMA · UART · BLE · sensor protocols · device profiles
-
-**Backend / Distributed-ish Systems**
-
-async ingestion · WebSockets · backpressure · reconnect logic ·
-persistence · replay · observability
-
-**Signal Processing**
-
-ECG filtering · R-peak detection · RR analysis · PPG pulse extraction ·
-ratio-of-ratios · motion gating · IMU processing
-
-**Frontend Engineering**
-
-React · TypeScript · canvas rendering · ring buffers · real-time
-visualization · responsive UX · accessibility
-
-**Data Engineering**
-
-timestamp reconstruction · loss accounting · chunked storage · retention
-· historical envelopes · provenance
-
-**Security**
-
-JWT · RBAC · device credentials · rate limiting · audit logging · CSP ·
-input validation
-
-**Testing**
-
-firmware conformance · property-style scenario tests · real-process
-integration · PostgreSQL tests · Playwright · axe · load testing
-
-------------------------------------------------------------------------
-
-# 🚧 Scope & limitations
-
-MESP is a **research/engineering prototype**.
-
-It is not:
-
--   a medical device
--   clinically validated
--   a diagnostic system
--   a replacement for a pulse oximeter / ECG monitor
--   a certified patient-monitoring platform
--   a claim of BLE performance in real-world RF conditions
--   a production cloud service
-
-The project deliberately labels synthetic data and explicitly documents
-unmeasured clinical and hardware characteristics.
-
-------------------------------------------------------------------------
+---
 
 <div align="center">
-## From a sensor pin to a browser pixel.
 
-### MESP turns a fragile stream of wearable bytes into a testable, observable, replayable real-time monitoring system.
+### From a sensor pin to a browser pixel.
 
-<br>
+**If the system cannot explain where a number came from, when it was measured, whether data was lost, and whether it is synthetic — it should not pretend the number is trustworthy.**
 
-**Built around one principle:**
+<sub>MIT © Siddhant Singh · Not a medical device</sub>
 
-> **If the system cannot explain where a number came from, when it was
-> measured, whether data was lost, and whether it is synthetic, it
-> should not pretend the number is trustworthy.**
 </div>
