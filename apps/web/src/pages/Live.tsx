@@ -113,7 +113,9 @@ export default function Live() {
         <FreshnessPill state={state} />
         {(d?.synthetic || current.simulated) && <SyntheticBadge />}
         <span className="text-xs text-muted">
-          {d?.status?.source ?? (current.online ? 'streaming' : `last seen ${fmt.ago(current.last_seen)}`)}
+          {state === 'LIVE'
+            ? `streaming now${d?.status?.source ? ` · ${sourceLabel(d.status.source)}` : ''}`
+            : current.last_seen ? `last seen ${fmt.ago(current.last_seen)}` : 'has not streamed yet'}
           {v?.t ? ` · updated ${fmt.time(v.t)}` : ''}
         </span>
         <div className="ml-auto flex gap-2">
@@ -258,4 +260,11 @@ function LiveSkeleton() {
       <div className="h-64 animate-pulse rounded-lg bg-surface-2" />
     </div>
   )
+}
+
+/** "browser:bluetooth MESP-Health" -> "Bluetooth from this website (MESP-Health)"; other sources are shown as sent. */
+export function sourceLabel(src: string): string {
+  const m = /^browser:(bluetooth|usb)\s*(.*)$/.exec(src)
+  if (!m) return src
+  return `${m[1] === 'bluetooth' ? 'Bluetooth' : 'USB cable'} from the website${m[2] ? ` (${m[2]})` : ''}`
 }

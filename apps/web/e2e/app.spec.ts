@@ -15,6 +15,29 @@ test('landing page tells the story and carries the disclaimer', async ({ page })
   await expect(page.getByText('Not yet measured')).toBeAttached()
 })
 
+test('landing: one click into the live demo, sign in is always visible', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible()
+  await page.getByRole('button', { name: /Try the live demo/ }).first().click()
+  await page.waitForURL('**/app/live')
+  await expect(page.getByText('DEMO MODE — SYNTHETIC DATA').first()).toBeVisible()
+})
+
+test('landing: animations can be paused, layers focused, sensors explored by keyboard', async ({ page }) => {
+  await page.goto('/')
+  const pause = page.getByRole('button', { name: 'Pause animations' }).first()
+  await pause.click()
+  await expect(page.getByRole('button', { name: 'Play animations' }).first()).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('group', { name: 'Focus one signal layer' }).getByRole('button', { name: 'PPG' }).click()
+  await expect(page.getByRole('img', { name: /focused on the PPG layer/ })).toBeAttached()
+  const tab = page.getByRole('tab', { name: /Electrical/ })
+  await tab.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByRole('tab', { name: /Optical/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tabpanel')).toContainText('Light reveals another rhythm.')
+  await expect(page.getByText('Bluetooth, from the browser')).toBeAttached()
+})
+
 test('frame anatomy explains real firmware bytes', async ({ page }) => {
   await page.goto('/#connection')
   await page.getByRole('option', { name: /CRC-16/ }).focus()

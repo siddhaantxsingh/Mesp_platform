@@ -17,7 +17,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-2E7D32?style=for-the-badge)
 
-![Tests](https://img.shields.io/badge/automated_tests-146_passing-2E7D32?style=flat-square)
+![Tests](https://img.shields.io/badge/automated_tests-150_passing-2E7D32?style=flat-square)
 ![Vectors](https://img.shields.io/badge/firmware_golden_vectors-byte--exact-6A1B9A?style=flat-square)
 ![Ingest](https://img.shields.io/badge/max_ingest-~6%2C400_frames%2Fs-1565C0?style=flat-square)
 ![Devices](https://img.shields.io/badge/16_devices_real--time-p95_≤_336_ms-00838F?style=flat-square)
@@ -406,16 +406,16 @@ xychart-beta
 
 ## 🧪 Correctness & testing
 
-**146 automated tests** — and they deliberately **cross process and language boundaries**.
+**150 automated tests** — and they deliberately **cross process and language boundaries**.
 
 ```mermaid
 pie showData
-    title 146 automated tests by layer
+    title 150 automated tests by layer
     "Protocol · Python" : 43
     "API (SQLite + PostgreSQL)" : 28
     "Web unit" : 21
     "Simulator" : 19
-    "Browser E2E" : 12
+    "Browser E2E" : 16
     "Gateway" : 9
     "Protocol · TypeScript" : 8
     "Replay" : 4
@@ -433,7 +433,7 @@ pie showData
 | API | Auth, rate limit, RBAC, keys, end-to-end ingest, **every scenario raises its expected event**, exact loss counting, ack flow, live WS, exports, cascade delete, **website Bluetooth/USB stream with wristband alerts** — on **SQLite and PostgreSQL** | 28 |
 | Integration | **Real uvicorn process + real `mesp-gateway` process** over WebSocket (sim and replay), graceful `bye` | 2 |
 | Web unit | Ring buffer, live-client state machine, freshness mapping, components, **Bluetooth/USB uplink** (byte-exact forwarding, reconnect, buffering, refusals) | 21 |
-| Browser E2E | Demo draws, keyboard controls, scenario → event → ack → timeline, export labelling, **axe WCAG 2 A/AA**, mobile layout, **Connect by Bluetooth / USB cable** with simulated devices replaying firmware bytes | 12 |
+| Browser E2E | Demo draws, keyboard controls, scenario → event → ack → timeline, export labelling, **axe WCAG 2 A/AA**, mobile layout, **Connect by Bluetooth / USB cable** with simulated devices replaying firmware bytes, landing page (one-click demo, motion pause, keyboard, mobile menu, reduced motion) | 16 |
 
 > All physiological expectations are tested against **simulated data**: they prove the pipeline computes what it was designed to compute on known inputs — not accuracy on real people.
 
@@ -554,7 +554,7 @@ Mesp_platform/
 |---|---|
 | Firmware framing vectors match byte-for-byte | Clinical HR and SpO₂ accuracy |
 | Python + TypeScript protocol conformance | Fall-detection sensitivity / specificity |
-| 146 automated tests, Python on SQLite **and** PostgreSQL | BLE range and air-interface latency |
+| 150 automated tests, Python on SQLite **and** PostgreSQL | BLE range and air-interface latency |
 | Exact injected-loss accounting | Throughput under real RF conditions |
 | Real-process gateway ↔ API integration | Battery gauge, skin temperature (not in firmware); website connection with the real nRF board |
 | ~6,400 frames/s max ingest; 16 devices real time at p95 ≤ 336 ms | Public hosted instance |

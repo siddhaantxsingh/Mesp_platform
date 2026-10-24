@@ -114,6 +114,8 @@ test('Bluetooth: connect, live data, wristband alerts, drop + auto-reconnect, di
   await expect(page.getByText('Connected by Bluetooth (MESP-Health)')).toBeVisible({ timeout: 15_000 })
   await liveVitals(page)
   await expect(page.getByText('Damaged packets').locator('..')).toContainText('0')
+  await expect(page.getByText(/streaming now/)).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByText(/last seen never/)).toHaveCount(0)
   await page.screenshot({ path: test.info().outputPath('ble-live.png'), fullPage: true })
 
   // the band drops out of range: page says so and reconnects on its own

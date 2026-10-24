@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — landing page v2
+
+- New landing page combining the current site and the "living signal" design study: deep teal theme, 3D signal-plane hero with layer focus, tabbed sensor explorer, frame anatomy, "three ways in" (Bluetooth, USB cable, gateway), wristband alerts, honest limits.
+- One click into the live demo; Sign in always visible; mobile menu; one switch pauses every animation (on by default for reduced motion); no text under 12 px; hero fits the first phone screen.
+- Lighthouse (production build): desktop 100/100/100/100; phone 96 performance, 100 accessibility/best practices/SEO. Main script 177 kB → 120 kB (console and sign-in load on demand); robots.txt.
+- Dashboard: the header follows the live state ("streaming now"), no more "LIVE · last seen never".
+
 ## Unreleased
 
 - Website can connect the wristband itself: **Connect by Bluetooth** (Web Bluetooth, Nordic UART "MESP-Health") or **Connect by USB cable** plugged into the XIAO nRF52840 (Web Serial, skips Bluetooth). New endpoint `/api/v1/ingest/browser/ws` (signed-in operator, same pipeline as the gateway). Bluetooth auto-reconnects; data is buffered while the internet drops; Disconnect is not raised as an alarm.

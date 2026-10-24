@@ -1,13 +1,12 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { AppShell } from '@/components/AppShell'
-import { TooltipProvider } from '@/components/ui/tooltip'
 import { StateView } from '@/components/ui/misc'
 import { useAuth } from '@/lib/auth'
 import Landing from '@/pages/Landing'
-import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
 
+const AppShell = lazy(() => import('@/components/AppShell').then((m) => ({ default: m.AppShell })))
+const Login = lazy(() => import('@/pages/Login'))
 const Live = lazy(() => import('@/pages/Live'))
 const History = lazy(() => import('@/pages/History'))
 const Sessions = lazy(() => import('@/pages/Sessions'))
@@ -28,12 +27,11 @@ const page = (el: ReactNode) => <Suspense fallback={<StateView kind="loading" ti
 
 export default function App() {
   return (
-    <TooltipProvider>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/app" element={<RequireAuth><AppShell /></RequireAuth>}>
+          <Route path="/login" element={page(<Login />)} />
+          <Route path="/app" element={<RequireAuth>{page(<AppShell />)}</RequireAuth>}>
             <Route index element={<Navigate to="live" replace />} />
             <Route path="live" element={page(<Live />)} />
             <Route path="history" element={page(<History />)} />
@@ -49,6 +47,5 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
-    </TooltipProvider>
   )
 }
