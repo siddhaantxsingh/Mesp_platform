@@ -10,8 +10,8 @@ export const HEADER_LEN = 7
 export const TRAILER_LEN = 2
 export const MAX_PAYLOAD = 1008
 
-export enum FrameType { PPG_RAW = 1, IMU_RAW = 2, STATUS = 3, TEXT = 4, ECG_RAW = 5 }
-const KNOWN = new Set([1, 2, 3, 4, 5])
+export enum FrameType { PPG_RAW = 1, IMU_RAW = 2, STATUS = 3, TEXT = 4, ECG_RAW = 5, EVENT = 6 }
+const KNOWN = new Set([1, 2, 3, 4, 5, 6])
 
 export interface Frame { version: number; type: number; seq: number; payload: Uint8Array; crc: number }
 
@@ -125,4 +125,12 @@ export function decodeEcg(p: Uint8Array): number[] {
 
 export function decodeText(p: Uint8Array): string {
   return new TextDecoder('ascii').decode(p).replace(/[\r\n\0]+$/, '')
+}
+
+/** EVENT payload (firmware Nrf_SendEvent): [kind][score][ASCII detail]. 1 = fall, 2 = stroke-risk (AFib screening). */
+export interface DeviceEvent { code: number; kind: string; score: number; text: string }
+export function decodeEvent(p: Uint8Array): DeviceEvent {
+  if (p.length < 2) throw new RangeError('EVENT payload shorter than 2 bytes')
+  const kind = p[0] === 1 ? 'fall' : p[0] === 2 ? 'stroke_risk' : `unknown_0x${p[0].toString(16).padStart(2, '0')}`
+  return { code: p[0], kind, score: p[1], text: decodeText(p.subarray(2)) }
 }

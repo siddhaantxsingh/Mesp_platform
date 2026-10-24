@@ -21,6 +21,10 @@
 #define NRF_FRAME_TYPE_STATUS    0x03u
 #define NRF_FRAME_TYPE_TEXT      0x04u
 #define NRF_FRAME_TYPE_ECG_RAW   0x05u
+#define NRF_FRAME_TYPE_EVENT     0x06u
+
+#define NRF_EVENT_FALL           0x01u
+#define NRF_EVENT_STROKE_RISK    0x02u
 
 #define NRF_MAX_PPG_SAMPLES      64u
 #define NRF_MAX_IMU_RECORDS      36u
@@ -35,6 +39,7 @@ uint8_t Nrf_SendPPG(const ppg_sample_t *samples, uint16_t n);
 uint8_t Nrf_SendIMU(const mpu6886_raw_t *records, uint16_t n);
 uint8_t Nrf_SendECG(const uint16_t *samples, uint16_t n);
 uint8_t Nrf_SendText(const char *text);
+uint8_t Nrf_SendEvent(uint8_t event, uint8_t score, const char *text);
 
 uint32_t Nrf_TxDropped(void);
 uint32_t Nrf_RxEvents(void);

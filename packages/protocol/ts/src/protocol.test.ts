@@ -40,3 +40,18 @@ describe('firmware conformance (TS)', () => {
     expect(d.stats.crcErrors).toBeGreaterThanOrEqual(1)
   })
 })
+
+describe('EVENT frames (fall / AFib screening)', () => {
+  it('decodes the firmware vectors', async () => {
+    const { decodeEvent, Deframer, FrameType } = await import('./index')
+    const d = new Deframer()
+    const frames = d.feed(V.event_fall)
+    expect(frames).toHaveLength(1)
+    expect(frames[0].type).toBe(FrameType.EVENT)
+    const e = decodeEvent(frames[0].payload)
+    expect([e.kind, e.score]).toEqual(['fall', 87])
+    expect(e.text).toContain('impact=3.42 g')
+    const s = decodeEvent(new Deframer().feed(V.event_stroke_risk)[0].payload)
+    expect([s.kind, s.score]).toEqual(['stroke_risk', 72])
+  })
+})

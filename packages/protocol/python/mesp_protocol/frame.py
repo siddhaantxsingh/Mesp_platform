@@ -32,6 +32,7 @@ class FrameType(enum.IntEnum):
     STATUS = 0x03
     TEXT = 0x04
     ECG_RAW = 0x05
+    EVENT = 0x06    # on-device alert: fall / AFib (stroke-risk) screening (firmware Nrf_SendEvent)
 
 
 @dataclass(frozen=True, slots=True)

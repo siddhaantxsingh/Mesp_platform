@@ -77,6 +77,52 @@ def parse_text_line(text: str) -> dict:
     return {"kind": kind, "fields": fields, "text": text}
 
 
+# ----------------------------------------------------------------------------- EVENT frames
+
+EVENT_FALL = 0x01
+EVENT_STROKE_RISK = 0x02
+EVENT_KINDS = {EVENT_FALL: "fall", EVENT_STROKE_RISK: "stroke_risk"}
+
+_NUM = r"(-?\d+(?:\.\d+)?)"
+_FALL_FIELDS = {
+    "t_ms": rf"\bt={_NUM} ms", "impact_g": rf"\bimpact={_NUM} g", "freefall_ms": rf"\bfreefall={_NUM} ms",
+    "still_ms": rf"\bstill={_NUM} ms", "orientation_change_deg": rf"\bdOri={_NUM} deg", "confidence_pct": rf"\bconf={_NUM}%",
+}
+_STROKE_FIELDS = {
+    "t_ms": rf"\bt={_NUM} ms", "score": rf"\bscore {_NUM}", "rr_count": rf"\b{_NUM} RR\b", "mean_rr_ms": rf"\bmean {_NUM} ms",
+    "rmssd_ms": rf"\bRMSSD {_NUM} ms", "pnn50_pct": rf"\bpNN50 {_NUM}%", "rr_entropy": rf"\bH {_NUM}",
+    "turning_point_ratio": rf"\bTPR {_NUM}",
+}
+
+
+def _num(v: str) -> int | float:
+    return float(v) if "." in v else int(v)
+
+
+def decode_event(payload: bytes) -> dict:
+    """EVENT payload, transcribed from ``Nrf_SendEvent`` in Core/Src/nrf_link.c:
+    ``[kind u8][score u8][ASCII detail...]``. kind 1 = fall (score = confidence %),
+    kind 2 = stroke-risk / AFib-pattern screening (score 0-100). The detail is the
+    same line the firmware prints on its console; its numbers are parsed into
+    ``fields`` when the text matches the format in main.c (unknown text is kept)."""
+    if len(payload) < 2:
+        raise PayloadError(f"EVENT payload {len(payload)} B is shorter than 2 B")
+    code, score = payload[0], payload[1]
+    text = payload[2:].decode("ascii", errors="replace").rstrip("\r\n\x00")
+    kind = EVENT_KINDS.get(code, f"unknown_0x{code:02x}")
+    pats = _FALL_FIELDS if code == EVENT_FALL else _STROKE_FIELDS if code == EVENT_STROKE_RISK else {}
+    fields: dict[str, int | float] = {}
+    for name, pat in pats.items():
+        m = re.search(pat, text)
+        if m:
+            fields[name] = _num(m.group(1))
+    return {"code": code, "kind": kind, "score": score, "text": text, "fields": fields}
+
+
+def encode_event(code: int, score: int, text: str = "") -> bytes:
+    return bytes((code & 0xFF, score & 0xFF)) + text.encode("ascii", errors="replace")
+
+
 def encode_ppg(red: list[int], ir: list[int]) -> bytes:
     out = bytearray()
     for r, i in zip(red, ir, strict=True):

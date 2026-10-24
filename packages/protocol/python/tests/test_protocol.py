@@ -179,3 +179,32 @@ def test_parse_frame_strict():
     for b in (bytes(bad), V["ppg_4"][:-1], b"\x00" + V["ppg_4"][1:]):
         with pytest.raises(FrameError):
             parse_frame(b)
+
+
+# ---------------------------------------------------------------------- EVENT frames (firmware with fall/AFib)
+
+def test_event_vectors_from_firmware():
+    from mesp_protocol import decode_event
+
+    f = one(V["event_fall"])
+    assert f.type == FrameType.EVENT and f.type_name == "EVENT"
+    e = decode_event(f.payload)
+    assert (e["kind"], e["score"]) == ("fall", 87)
+    assert e["fields"] == {"t_ms": 123456, "impact_g": 3.42, "freefall_ms": 310, "still_ms": 2100,
+                           "orientation_change_deg": 78, "confidence_pct": 87}
+    s = decode_event(one(V["event_stroke_risk"]).payload)
+    assert (s["kind"], s["score"]) == ("stroke_risk", 72)
+    assert s["fields"]["rr_count"] == 64 and s["fields"]["rmssd_ms"] == 143 and s["fields"]["turning_point_ratio"] == 0.68
+    assert "not a stroke diagnosis" in s["text"]
+    n = decode_event(one(V["event_no_text"]).payload)
+    assert (n["kind"], n["score"], n["text"], n["fields"]) == ("fall", 50, "", {})
+
+
+def test_event_payload_errors_and_unknown_kind():
+    import pytest
+    from mesp_protocol import decode_event, encode_event
+    from mesp_protocol.decode import PayloadError
+
+    with pytest.raises(PayloadError):
+        decode_event(b"\x01")
+    assert decode_event(encode_event(9, 5, "custom"))["kind"] == "unknown_0x09"

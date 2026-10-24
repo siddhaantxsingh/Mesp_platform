@@ -18,6 +18,7 @@ from mesp_protocol import (
     FrameError,
     FrameType,
     decode_ecg,
+    decode_event,
     decode_imu,
     decode_ppg,
     decode_text,
@@ -169,6 +170,7 @@ class IngestSession:
         self.ctx = ctx
         self.device_id = device.id
         self.device_name = device.name
+        self._device_events: list[EventOut] = []
         self.profile = get_profile(device.profile_id)
         self.source = source
         self.synthetic = synthetic or device.simulated
@@ -293,6 +295,7 @@ class IngestSession:
         recv = time.time()
         async with self._lock:
             live: dict[str, list] = {"ecg": [], "ppg": [], "imu": []}
+            self._device_events: list[EventOut] = []
             for rx_time, raw in items:
                 self.stats["bytes"] += len(raw)
                 try:
@@ -314,6 +317,9 @@ class IngestSession:
                     self.stats["frame_errors"] += 1
             self._last_data_wall = time.monotonic()
             self._publish_live(live)
+            if self._device_events:
+                await self._emit(self._device_events)
+                self._device_events = []
             # process every complete 1 s slice (a 0.2 s allowance lets slower streams catch up)
             ends = [b.end_time for b in self.buffers.values() if b.end_time is not None]
             if ends:
@@ -344,6 +350,8 @@ class IngestSession:
             self._add("imu", np.asarray(decode_imu(f.payload), dtype=np.float64), rx_time, live)
         elif t in (FrameType.TEXT, FrameType.STATUS):
             self._text(decode_text(f.payload))
+        elif t == FrameType.EVENT:
+            self._device_events.append(device_event(decode_event(f.payload), rx_time))
 
     def _add(self, stream: str, arr: np.ndarray, rx_time: float, live: dict) -> None:
         n = len(arr)
@@ -523,6 +531,20 @@ class IngestSession:
                       "profile": self.profile.to_dict(), "firmware": self.firmware, "stats": self.public_stats(),
                       "gateway": self.stats.get("gateway"), "device_reported": self.stats.get("device_reported"),
                       "vitals": self.latest_vitals})
+
+
+def device_event(e: dict, t: float) -> EventOut:
+    """An alert decided ON THE WRISTBAND (firmware fall detector / AFib screen), shown as reported.
+    The platform's own server-side rules run independently; codes are distinct so both are visible."""
+    data = {"source": "device", "score": e["score"], **e["fields"]}
+    if e["kind"] == "fall":
+        return EventOut(t, CRITICAL, "device_fall", "Fall detected by the wristband",
+                        f"On-device fall detector, confidence {e['score']}%. {e['text']}".strip(), "imu", data)
+    if e["kind"] == "stroke_risk":
+        return EventOut(t, WARNING, "device_afib_screen", "Irregular rhythm (AFib pattern) flagged by the wristband",
+                        f"On-device AFib pattern screen, score {e['score']}/100. Screening only, not a diagnosis. "
+                        f"{e['text']}".strip(), "ecg", data)
+    return EventOut(t, INFO, "device_event", f"Device event {e['kind']}", e["text"] or f"score {e['score']}", None, data)
 
 
 def event_dict(r: models.Event) -> dict:

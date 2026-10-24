@@ -5,11 +5,15 @@
 #include <stddef.h>
 typedef enum { HAL_OK = 0, HAL_ERROR, HAL_BUSY, HAL_TIMEOUT } HAL_StatusTypeDef;
 typedef struct { int dummy; } USART_TypeDef;
-typedef struct { USART_TypeDef *Instance; } UART_HandleTypeDef;
+typedef struct { uint32_t BaudRate; uint32_t HwFlowCtl; } UART_InitTypeDef;
+typedef struct { USART_TypeDef *Instance; UART_InitTypeDef Init; } UART_HandleTypeDef;
+#define UART_HWCONTROL_NONE    0u
+#define UART_HWCONTROL_RTS_CTS 3u
 typedef int IRQn_Type;
 #define USART1_IRQn 37
 void HAL_NVIC_SetPriority(IRQn_Type irq, uint32_t p, uint32_t s);
 void HAL_NVIC_EnableIRQ(IRQn_Type irq);
 HAL_StatusTypeDef HAL_UART_Transmit_DMA(UART_HandleTypeDef *h, const uint8_t *d, uint16_t n);
+HAL_StatusTypeDef HAL_UART_Init(UART_HandleTypeDef *h);
 HAL_StatusTypeDef HAL_UARTEx_ReceiveToIdle_DMA(UART_HandleTypeDef *h, uint8_t *d, uint16_t n);
 #endif

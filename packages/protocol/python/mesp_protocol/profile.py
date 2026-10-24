@@ -38,7 +38,7 @@ class DeviceProfile:
 MESP_LAB_MAIN = DeviceProfile(
     id="mesp-lab-main-v1",
     protocol_version=1,
-    firmware="MESP_lab@main (STM32G431KB, nrf_link v1)",
+    firmware="MESP_lab@main (STM32G431KB, nrf_link v1 + EVENT frames, NRF_LINK_ENABLED=1)",
     ppg_fifo_hz=25.0,
     ppg_adc_bits=18,
     imu_hz=1000.0,

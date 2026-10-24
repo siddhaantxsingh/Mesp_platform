@@ -4,6 +4,11 @@
                    text = JSON control ({"type": "hello" | "status" | "link" | "flush" | "bye"}).
                    "bye" announces a deliberate shutdown (no disconnect event is raised).
                    "flush" is answered with {"type": "flushed"} once all earlier messages are processed.
+/api/v1/ingest/browser/ws  browser -> API, for the website's "Connect by Bluetooth / USB cable"
+                   buttons. Browsers cannot set the X-Device-Key header, so the FIRST text message
+                   authenticates instead: {"type": "auth", "token": "<user JWT>", "device_id": "<id>"}
+                   (within 5 s). Requires a signed-in (non-demo) user with the operator role.
+                   After {"type": "authenticated"}, the protocol is identical to /ingest/ws.
 /api/v1/live/ws    API -> browser, protocol v1:
     client -> {"type": "auth", "token": "<JWT>"}            (must be first, within 5 s)
     client -> {"type": "subscribe", "device_id": "<id>"|"*"}
@@ -27,7 +32,7 @@ from .. import models
 from ..context import AppContext
 from ..deps import principal_from_token
 from ..pipeline.ingest import IngestSession
-from ..security import hash_key
+from ..security import hash_key, role_at_least
 
 router = APIRouter(prefix="/api/v1")
 log = logging.getLogger("mesp.ws")
@@ -49,6 +54,41 @@ async def ingest_ws(ws: WebSocket) -> None:
         await ws.close(code=4409, reason="device already streaming")
         return
     await ws.accept()
+    await _ingest_loop(ctx, ws, device, default_source="gateway")
+
+
+@router.websocket("/ingest/browser/ws")
+async def ingest_browser_ws(ws: WebSocket) -> None:
+    """Same ingest pipeline, fed by the website itself (Web Bluetooth / Web Serial)."""
+    ctx: AppContext = ws.app.state.ctx
+    await ws.accept()
+    try:
+        first = await asyncio.wait_for(ws.receive_json(), timeout=5)
+        if first.get("type") != "auth":
+            raise ValueError("first message must be auth")
+        principal = principal_from_token(ctx, str(first.get("token", "")))
+    except Exception:  # noqa: BLE001 - any failure here is an authentication failure
+        ctx.metrics.inc("ingest_rejected_messages_total")
+        await ws.close(code=4401, reason="authentication required")
+        return
+    if principal.demo or not role_at_least(principal.role, "operator"):
+        await ws.close(code=4403, reason="streaming a device requires a signed-in operator account")
+        return
+    device_id = str(first.get("device_id", ""))[:64]
+    async with ctx.db.session() as s:
+        device = await s.get(models.Device, device_id) if device_id else None
+    if device is None:
+        await ws.close(code=4404, reason="device not found")
+        return
+    if device.id in ctx.ingest:
+        await ws.close(code=4409, reason="device already streaming")
+        return
+    await ctx.audit(principal.email, "browser_stream_start", device.id, {}, ws.client.host if ws.client else None)
+    await ws.send_json({"type": "authenticated", "device_id": device.id, "device_name": device.name})
+    await _ingest_loop(ctx, ws, device, default_source="browser")
+
+
+async def _ingest_loop(ctx: AppContext, ws: WebSocket, device: models.Device, default_source: str) -> None:
     sess: IngestSession | None = None
     pending_ctrl: list[dict] = []
     expected_close = False
@@ -64,7 +104,10 @@ async def ingest_ws(ws: WebSocket) -> None:
                     ctx.metrics.inc("ingest_rejected_messages_total")
                     continue
                 if ctrl.get("type") == "hello" and sess is None:
-                    sess = IngestSession(ctx, device, source=str(ctrl.get("source", "gateway"))[:200],
+                    if device.id in ctx.ingest:   # another stream won the race since the handshake
+                        await ws.close(code=4409, reason="device already streaming")
+                        return
+                    sess = IngestSession(ctx, device, source=str(ctrl.get("source", default_source))[:200],
                                          synthetic=bool(ctrl.get("synthetic")), realtime=bool(ctrl.get("realtime", True)))
                     await sess.start()
                     ctx.ingest[device.id] = sess
@@ -72,12 +115,13 @@ async def ingest_ws(ws: WebSocket) -> None:
                         await sess.handle_control(c)
                     await ws.send_json({"type": "welcome", "session_id": sess.session_id, "device_id": device.id})
                 elif ctrl.get("type") == "bye":
-                    expected_close = True          # graceful gateway shutdown: no disconnect alarm
+                    expected_close = True          # graceful shutdown: no disconnect alarm
                 elif ctrl.get("type") == "flush":
-                    # barrier: everything sent before this has been processed (graceful gateway stop)
+                    # barrier: everything sent before this has been processed (graceful stop)
                     await ws.send_json({"type": "flushed", "stats": sess.public_stats() if sess else None})
                 elif sess is None:
-                    pending_ctrl.append(ctrl)
+                    if len(pending_ctrl) < 32:
+                        pending_ctrl.append(ctrl)
                 else:
                     await sess.handle_control(ctrl)
             elif msg.get("bytes") is not None:

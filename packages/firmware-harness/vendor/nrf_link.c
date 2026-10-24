@@ -81,6 +81,18 @@ void Nrf_Init(UART_HandleTypeDef *huart)
     nrf_tx_dropped = 0u;
     nrf_rx_events = 0u;
 
+    /* CubeMX regenerates MX_USART1_UART_Init() with the .ioc baud/flow-control
+       defaults (115200, no HWFC); app_config.h is the source of truth, so
+       re-apply it here where regeneration cannot overwrite it. */
+    nrf_uart->Init.BaudRate  = NRF_UART_BAUD;
+    nrf_uart->Init.HwFlowCtl = NRF_UART_HWFC ? UART_HWCONTROL_RTS_CTS
+                                             : UART_HWCONTROL_NONE;
+    if (HAL_UART_Init(nrf_uart) != HAL_OK) {
+        console_printf("nRF: USART1 init FAILED (%lu baud, HWFC %s)\r\n",
+                       (unsigned long)NRF_UART_BAUD, NRF_UART_HWFC ? "on" : "off");
+        return;
+    }
+
     HAL_NVIC_SetPriority(USART1_IRQn, 6u, 0u);
     HAL_NVIC_EnableIRQ(USART1_IRQn);
 
@@ -191,6 +203,27 @@ uint8_t Nrf_SendText(const char *text)
     if (text == NULL) return 0u;
     return Nrf_SendFrame(NRF_FRAME_TYPE_TEXT, (const uint8_t *)text,
                          (uint16_t)strlen(text));
+}
+
+/* Event frame: [kind][score][ASCII detail...]. The detail is the same line
+   printed on the console, so a host can show it without re-implementing the
+   threshold logic. */
+uint8_t Nrf_SendEvent(uint8_t event, uint8_t score, const char *text)
+{
+    uint16_t len = 0u;
+    size_t text_len = 0u;
+
+    nrf_payload[len++] = event;
+    nrf_payload[len++] = score;
+    if (text != NULL) {
+        text_len = strlen(text);
+        if (text_len > (sizeof(nrf_payload) - (size_t)len)) {
+            text_len = sizeof(nrf_payload) - (size_t)len;
+        }
+        memcpy(&nrf_payload[len], text, text_len);
+        len = (uint16_t)(len + text_len);
+    }
+    return Nrf_SendFrame(NRF_FRAME_TYPE_EVENT, nrf_payload, len);
 }
 
 uint32_t Nrf_TxDropped(void)

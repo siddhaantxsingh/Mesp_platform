@@ -22,6 +22,8 @@ HAL_StatusTypeDef HAL_UART_Transmit_DMA(UART_HandleTypeDef *h, const uint8_t *d,
 /* Complete every queued "DMA" transfer, as the TC interrupt would (handles ring wrap). */
 static void flush(void) { while (tx_pending) { tx_pending = 0; HAL_UART_TxCpltCallback(&huart); } }
 void Console_OnTxCplt(UART_HandleTypeDef *h) { (void)h; }
+HAL_StatusTypeDef HAL_UART_Init(UART_HandleTypeDef *h) { (void)h; return HAL_OK; }
+int console_printf(const char *fmt, ...) { (void)fmt; return 0; }
 
 static void emit(const char *name, const char *desc, int last) {
     flush();
@@ -56,7 +58,17 @@ int main(void) {
     /* sequence wrap: advance the 8-bit counter to 255, then send two frames */
     for (int i = 7; i < 255; i++) { Nrf_SendText("x"); flush(); cap_len = 0; }
     Nrf_SendText("seq255");           emit("seq_255", "TEXT at seq 255", 0);
-    Nrf_SendText("seq0");             emit("seq_wrap_0", "TEXT after wrap, seq 0", 1);
+    Nrf_SendText("seq0");             emit("seq_wrap_0", "TEXT after wrap, seq 0", 0);
+    /* EVENT frames (Nrf_SendEvent): [kind][score][ASCII detail], texts formatted as in main.c. */
+    Nrf_SendEvent(NRF_EVENT_FALL, 87,
+        "EVENT:FALL t=123456 ms impact=3.42 g freefall=310 ms still=2100 ms dOri=78 deg conf=87%");
+    emit("event_fall", "EVENT fall, confidence 87, seq 1", 0);
+    Nrf_SendEvent(NRF_EVENT_STROKE_RISK, 72,
+        "EVENT:STROKE_RISK t=654321 ms AFib pattern suspected (score 72, 64 RR, mean 812 ms, RMSSD 143 ms, "
+        "pNN50 61%, H 3.21, TPR 0.68) - screening only, not a stroke diagnosis");
+    emit("event_stroke_risk", "EVENT stroke-risk (AFib screening), score 72, seq 2", 0);
+    Nrf_SendEvent(NRF_EVENT_FALL, 50, NULL);
+    emit("event_no_text", "EVENT fall without detail text, seq 3", 1);
     printf("]}\n");
     return 0;
 }
