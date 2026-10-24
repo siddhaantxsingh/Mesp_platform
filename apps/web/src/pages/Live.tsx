@@ -20,6 +20,7 @@ import { can, useAuth } from '@/lib/auth'
 import { fmt } from '@/lib/format'
 import { freshness, getBuffers, useLive } from '@/lib/live/store'
 import { useAsync } from '@/lib/useAsync'
+import { useUi } from '@/lib/ui'
 
 function useNow(ms = 1000) {
   const [n, setN] = useState(Date.now())
@@ -44,6 +45,7 @@ export default function Live() {
   const { current, devices, devicesLoading, devicesError, reloadDevices } = useOutletContext<ShellCtx>()
   const role = useAuth((s) => s.role)
   const demo = useAuth((s) => s.demo)
+  const setDevice = useUi((s) => s.setDevice)
   const navigate = useNavigate()
   const id = current?.id
   const conn = useLive((s) => s.conn)
@@ -91,7 +93,7 @@ export default function Live() {
           : 'Pair your MESP wristband, or start a demo scenario to explore the platform with clearly labelled synthetic data.'}
         action={realUser ? 'Add my wristband' : can(role, 'operator') ? 'Start a demo scenario' : undefined}
         onAction={realUser
-          ? async () => { await api.createDevice('MESP wristband', 'mesp-lab-main-v1'); reloadDevices() }
+          ? async () => { const d = await api.createDevice('MESP wristband', 'mesp-lab-main-v1'); setDevice(d.id); reloadDevices() }
           : () => navigate('/app/demo')} />
     )
   }
@@ -119,7 +121,7 @@ export default function Live() {
         </div>
       </div>
 
-      <ConnectPanel device={current} />
+      <ConnectPanel device={current} devices={devices} onAdded={reloadDevices} />
 
       {state === 'NO DATA' && (
         <Card><StateView kind="offline" title="This device has not streamed yet"

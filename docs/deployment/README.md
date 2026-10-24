@@ -60,3 +60,12 @@ Notes: Render's free web service sleeps after inactivity (first request takes ~1
 - [ ] Single API replica (the live hub is in-process, see ADR-003).
 
 > Public deployment: **not deployed by the author.** No hosted instance exists; claims about uptime or scale would be fabricated.
+
+## 6. One computer, no Docker, no Node.js (Windows)
+
+`scripts/local/START-MESP.bat` (double-click) creates a Python environment on first start, then runs
+`scripts/local/run_local.py`: the API and the pre-built website together on `http://localhost:8000`, and opens Chrome.
+Needs Python 3.11+ and a built `apps/web/dist` (the release zip includes it). A team login is created on first start and
+printed in the window (also saved in `local-data/admin.txt`); data is kept in `local-data/mesp.db`. Demo mode stays on,
+so the simulated demo device is available next to the real wristband. Because the address is `localhost`, Chrome allows
+**Connect by Bluetooth** and **Connect by USB cable**.

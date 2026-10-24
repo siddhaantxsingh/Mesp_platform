@@ -22,3 +22,6 @@ replay/recordings/*.mesprec
 *.tmp.mjs
 apps/web/test-results/
 apps/web/playwright-report/
+
+# one-computer instance (scripts/local)
+local-data/

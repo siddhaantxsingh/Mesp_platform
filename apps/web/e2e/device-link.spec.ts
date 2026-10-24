@@ -89,9 +89,12 @@ async function login(page: Page) {
   await page.waitForURL('**/app/**')
   await page.goto('/app/live')
   const add = page.getByRole('button', { name: 'Add my wristband' })
+  const sw = page.getByRole('button', { name: /^Switch to MESP wristband/ })
   const panel = page.getByRole('heading', { name: 'Connect your wristband' })
-  await expect(add.or(panel)).toBeVisible({ timeout: 15_000 })      // fresh account: add the band first
+  // fresh account: add the band first; with demo mode on, a simulated device may be selected
+  await expect(add.or(panel).or(sw.first())).toBeVisible({ timeout: 15_000 })
   if (await add.isVisible()) await add.click()
+  else if (await sw.first().isVisible()) await sw.first().click()
   await expect(panel).toBeVisible({ timeout: 15_000 })
 }
 

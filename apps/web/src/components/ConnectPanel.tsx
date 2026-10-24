@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Bluetooth, Cable, Loader2, Unplug } from 'lucide-react'
 import type { Device } from '@mesp/types'
+import { api } from '@/lib/api'
 import { can, useAuth } from '@/lib/auth'
 import { linkSupport } from '@/lib/device-link/sources'
 import { useDeviceLink } from '@/lib/device-link/store'
 import { fmt } from '@/lib/format'
+import { useUi } from '@/lib/ui'
 import { Button } from './ui/button'
 import { Card, CardBody, CardHeader } from './ui/card'
 
@@ -12,14 +14,17 @@ import { Card, CardBody, CardHeader } from './ui/card'
  * "Connect your wristband": Bluetooth or USB cable, straight from the browser.
  * Data then flows browser -> server -> every open dashboard, exactly like the gateway program.
  */
-export function ConnectPanel({ device }: { device: Device }) {
+export function ConnectPanel({ device, devices = [], onAdded }: { device: Device; devices?: Device[]; onAdded?: () => void }) {
   const role = useAuth((s) => s.role)
   const demo = useAuth((s) => s.demo)
   const { snap, busy, error, connect, disconnect, clearError, link } = useDeviceLink()
   const support = useMemo(() => linkSupport(), [])
   const [showHelp, setShowHelp] = useState(false)
 
-  if (device.simulated) return null
+  if (device.simulated) {
+    if (!can(role, 'operator') || demo) return null
+    return <SimulatedHint devices={devices} onAdded={onAdded} />
+  }
   const mine = !!link && snap?.deviceId === device.id
   const active = mine && snap && (snap.phase === 'streaming' || snap.phase === 'connecting' || snap.phase === 'reconnecting')
   const allowed = can(role, 'operator') && !demo
@@ -115,5 +120,31 @@ function Item({ k, v, hint }: { k: string; v: string; hint?: string }) {
       <dt className="text-[11px] text-muted">{k}</dt>
       <dd className="font-mono text-sm tabular-nums">{v}</dd>
     </div>
+  )
+}
+
+/** Shown on a simulated device: how to get to the real band (switch to it, or add it). */
+function SimulatedHint({ devices, onAdded }: { devices: Device[]; onAdded?: () => void }) {
+  const setDevice = useUi((s) => s.setDevice)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const real = devices.filter((d) => !d.simulated)
+  return (
+    <Card aria-label="Connect your wristband">
+      <CardBody className="flex flex-wrap items-center gap-3 text-sm">
+        <Bluetooth className="h-4 w-4 text-primary" />
+        <span className="flex-1 text-muted">This is a simulated demo device. To see your real wristband, switch to it.</span>
+        {real.length ? real.slice(0, 3).map((d) => (
+          <Button key={d.id} size="sm" variant="outline" onClick={() => setDevice(d.id)}>Switch to {d.name}</Button>
+        )) : (
+          <Button size="sm" variant="primary" loading={busy} onClick={async () => {
+            setBusy(true); setErr(null)
+            try { const d = await api.createDevice('MESP wristband', 'mesp-lab-main-v1'); setDevice(d.id); onAdded?.() }
+            catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
+          }}>Add my wristband</Button>
+        )}
+        {err && <p role="alert" className="w-full text-critical">{err}</p>}
+      </CardBody>
+    </Card>
   )
 }
