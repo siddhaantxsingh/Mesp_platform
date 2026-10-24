@@ -6,7 +6,7 @@ install:
 	npm ci
 
 vectors:            ## regenerate firmware conformance vectors
-	./firmware-harness/build.sh
+	sh packages/firmware-harness/build.sh
 
 lint:
 	ruff check .

@@ -1,6 +1,6 @@
 # Link protocol v1 (STM32 → nRF52840 → gateway)
 
-**Source of truth:** `mesp_lab/Core/Src/nrf_link.c` in the MESP_lab firmware. Everything below was read from that file and is verified byte-for-byte by `firmware-harness/` (the firmware's own C code compiled on a host) and the tests in `packages/protocol/python/tests` and `packages/protocol/ts/src`.
+**Source of truth:** `mesp_lab/Core/Src/nrf_link.c` in the MESP_lab firmware. Everything below was read from that file and is verified byte-for-byte by `packages/firmware-harness/` (the firmware's own C code compiled on a host) and the tests in `packages/protocol/python/tests` and `packages/protocol/ts/src`.
 
 ## Transport
 

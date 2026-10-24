@@ -32,7 +32,7 @@ flowchart LR
 
 | Path | Role | Key decisions |
 |---|---|---|
-| `firmware-harness/` | compiles the firmware's `nrf_link.c` on a host, emits golden frames | protocol is *read from the firmware*, not assumed |
+| `packages/firmware-harness/` | compiles the firmware's `nrf_link.c` on a host, emits golden frames | protocol is *read from the firmware*, not assumed |
 | `packages/protocol` | link protocol v1: CRC, deframer, decoders, device profiles (Python + TypeScript) | same vectors test both languages |
 | `simulator/` | 10 deterministic scenarios → firmware-format bytes | ADR-007 |
 | `replay/` | `.mesprec` raw byte recordings, timing-faithful playback | |
