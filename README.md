@@ -17,7 +17,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-2E7D32?style=for-the-badge)
 
-![Tests](https://img.shields.io/badge/automated_tests-122_passing-2E7D32?style=flat-square)
+![Tests](https://img.shields.io/badge/automated_tests-146_passing-2E7D32?style=flat-square)
 ![Vectors](https://img.shields.io/badge/firmware_golden_vectors-byte--exact-6A1B9A?style=flat-square)
 ![Ingest](https://img.shields.io/badge/max_ingest-~6%2C400_frames%2Fs-1565C0?style=flat-square)
 ![Devices](https://img.shields.io/badge/16_devices_real--time-p95_≤_336_ms-00838F?style=flat-square)
@@ -406,34 +406,34 @@ xychart-beta
 
 ## 🧪 Correctness & testing
 
-**122 automated tests** — and they deliberately **cross process and language boundaries**.
+**146 automated tests** — and they deliberately **cross process and language boundaries**.
 
 ```mermaid
 pie showData
-    title 122 automated tests by layer
-    "Protocol · Python" : 35
-    "API (SQLite + PostgreSQL)" : 25
+    title 146 automated tests by layer
+    "Protocol · Python" : 43
+    "API (SQLite + PostgreSQL)" : 28
+    "Web unit" : 21
     "Simulator" : 19
-    "Web unit" : 11
-    "Browser E2E" : 10
+    "Browser E2E" : 12
     "Gateway" : 9
-    "Protocol · TypeScript" : 7
+    "Protocol · TypeScript" : 8
     "Replay" : 4
     "Cross-process integration" : 2
 ```
 
 | Layer | What it proves | Count |
 |---|---|---|
-| Firmware conformance | Golden frames regenerated from the vendored `nrf_link.c` | 9 vectors |
-| Protocol (Python) | CRC, every vector, encoder round-trip, chunking, resync, false sync, fuzz | 35 |
-| Protocol (TypeScript) | Same vectors | 7 |
+| Firmware conformance | Golden frames regenerated from the vendored `nrf_link.c`, incl. on-device fall / AFib `EVENT` frames | 12 vectors |
+| Protocol (Python) | CRC, every vector, encoder round-trip, chunking, resync, false sync, fuzz, `EVENT` decoding | 43 |
+| Protocol (TypeScript) | Same vectors | 8 |
 | Simulator | 10 scenarios valid, determinism, firmware batching/rates, loss/corruption/disconnect accounting | 19 |
 | Replay | Format round-trip, truncation, real-time pacing, speed, seek, loop | 4 |
 | Gateway | Ingest codec, link state machine, backoff, only-valid-frames forwarding | 9 |
-| API | Auth, rate limit, RBAC, keys, end-to-end ingest, **every scenario raises its expected event**, exact loss counting, ack flow, live WS, exports, cascade delete — on **SQLite and PostgreSQL** | 25 |
+| API | Auth, rate limit, RBAC, keys, end-to-end ingest, **every scenario raises its expected event**, exact loss counting, ack flow, live WS, exports, cascade delete, **website Bluetooth/USB stream with wristband alerts** — on **SQLite and PostgreSQL** | 28 |
 | Integration | **Real uvicorn process + real `mesp-gateway` process** over WebSocket (sim and replay), graceful `bye` | 2 |
-| Web unit | Ring buffer, live-client state machine, freshness mapping, components | 11 |
-| Browser E2E | Demo draws, keyboard controls, scenario → event → ack → timeline, export labelling, **axe WCAG 2 A/AA**, mobile layout | 10 |
+| Web unit | Ring buffer, live-client state machine, freshness mapping, components, **Bluetooth/USB uplink** (byte-exact forwarding, reconnect, buffering, refusals) | 21 |
+| Browser E2E | Demo draws, keyboard controls, scenario → event → ack → timeline, export labelling, **axe WCAG 2 A/AA**, mobile layout, **Connect by Bluetooth / USB cable** with simulated devices replaying firmware bytes | 12 |
 
 > All physiological expectations are tested against **simulated data**: they prove the pipeline computes what it was designed to compute on known inputs — not accuracy on real people.
 
@@ -477,7 +477,11 @@ docker compose up --build -d
 # → http://localhost:8080
 ```
 
-**Real hardware** — set `NRF_LINK_ENABLED 1` in the MESP_lab firmware, flash the STM32 and the XIAO nRF52840 bridge, then:
+**Real hardware** — set `NRF_LINK_ENABLED 1` in the MESP_lab firmware and flash the STM32 and the XIAO nRF52840 bridge.
+
+Easiest: sign in with a team account, open **Live** and press **Connect by Bluetooth** (pick `MESP-Health`) or **Connect by USB cable** (cable into the XIAO board; skips Bluetooth). Chrome or Edge, over https or `localhost`; Android phones use Bluetooth. On Windows without Docker or Node.js, double-click `scripts/local/START-MESP.bat` (needs Python 3.11+ and a built `apps/web/dist`) — see [deployment](docs/deployment/README.md).
+
+Or run the gateway program:
 
 ```bash
 mesp-gateway --source ble --ble-name MESP-Health \
@@ -550,9 +554,9 @@ Mesp_platform/
 |---|---|
 | Firmware framing vectors match byte-for-byte | Clinical HR and SpO₂ accuracy |
 | Python + TypeScript protocol conformance | Fall-detection sensitivity / specificity |
-| 122 automated tests, Python on SQLite **and** PostgreSQL | BLE range and air-interface latency |
+| 146 automated tests, Python on SQLite **and** PostgreSQL | BLE range and air-interface latency |
 | Exact injected-loss accounting | Throughput under real RF conditions |
-| Real-process gateway ↔ API integration | Battery gauge, skin temperature (not in firmware) |
+| Real-process gateway ↔ API integration | Battery gauge, skin temperature (not in firmware); website connection with the real nRF board |
 | ~6,400 frames/s max ingest; 16 devices real time at p95 ≤ 336 ms | Public hosted instance |
 | WCAG 2 A/AA automated checks, both themes | Multi-replica live hub |
 | Synthetic-data provenance through exports | |

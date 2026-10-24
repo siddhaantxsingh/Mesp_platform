@@ -12,6 +12,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api/v1/live/ws': { target: api.replace('http', 'ws'), ws: true },
+      '/api/v1/ingest/browser/ws': { target: api.replace('http', 'ws'), ws: true },
       '/api': api,
       '/health': api,
       '/ready': api,

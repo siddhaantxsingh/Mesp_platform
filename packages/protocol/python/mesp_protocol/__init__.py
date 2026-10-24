@@ -10,11 +10,11 @@ from .decode import (
     EVENT_STROKE_RISK,
     decode_ecg,
     decode_event,
-    encode_event,
     decode_imu,
     decode_ppg,
     decode_text,
     encode_ecg,
+    encode_event,
     encode_imu,
     encode_ppg,
     parse_text_line,
@@ -37,6 +37,7 @@ from .profile import DEFAULT_PROFILE_ID, PROFILES, DeviceProfile, get_profile
 __all__ = [
     "crc16_ccitt_false", "MAGIC", "MAX_PAYLOAD", "HEADER_LEN", "TRAILER_LEN", "Frame", "FrameType",
     "Deframer", "DeframerStats", "encode_frame", "parse_frame", "FrameError", "decode_ppg", "decode_imu", "decode_ecg",
-    "decode_text", "parse_text_line", "decode_event", "encode_event", "EVENT_FALL", "EVENT_STROKE_RISK", "EVENT_KINDS", "encode_ppg", "encode_imu", "encode_ecg", "DeviceProfile",
+    "decode_text", "parse_text_line", "decode_event", "encode_event", "EVENT_FALL", "EVENT_STROKE_RISK", "EVENT_KINDS",
+    "encode_ppg", "encode_imu", "encode_ecg", "DeviceProfile",
     "PROFILES", "get_profile", "DEFAULT_PROFILE_ID",
 ]

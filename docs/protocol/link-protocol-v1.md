@@ -36,6 +36,12 @@ CRC-16/CCITT-FALSE: polynomial 0x1021, init 0xFFFF, no reflection, no final XOR 
 | `STATUS` | 0x03 | ASCII text | not emitted by current firmware |
 | `TEXT` | 0x04 | ASCII text | `boot: ppg=25sps imu=1kHz` once, `stats ppg=… imu=… ecg=… ovf=… drop=…` every 1 s |
 | `ECG_RAW` | 0x05 | n × 2 B: 12-bit ADC code, uint16 big-endian | DMA half-buffer → 32 samples/frame, ≤ 504 |
+| `EVENT` | 0x06 | `kind` (1 B) · `score` (1 B, 0–100) · ASCII detail | sent when the on-device detector fires: kind 1 = fall (score = confidence %), kind 2 = AFib-pattern screen (score 0–100; screening only, not a diagnosis) |
+
+`EVENT` detail text, as written by `main.c`:
+`EVENT:FALL t=… ms impact=… g freefall=… ms still=… ms dOri=… deg conf=…%` and
+`EVENT:STROKE_RISK t=… ms AFib pattern suspected (score …, … RR, mean … ms, RMSSD … ms, pNN50 …%, H …, TPR …) - screening only, not a stroke diagnosis`.
+The API turns them into `device_fall` (critical) and `device_afib_screen` (warning) events; unknown kinds become an info event.
 
 ## What the wire does *not* carry
 

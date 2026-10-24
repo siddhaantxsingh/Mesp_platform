@@ -10,3 +10,10 @@ export function liveWsUrl(): string {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${proto}//${location.host}/api/v1/live/ws`
 }
+
+/** WebSocket the website uses to stream a wristband it opened itself (Bluetooth / USB cable). */
+export function browserIngestWsUrl(): string {
+  if (API_BASE) return `${API_BASE.replace(/^http/, 'ws')}/api/v1/ingest/browser/ws`
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${proto}//${location.host}/api/v1/ingest/browser/ws`
+}

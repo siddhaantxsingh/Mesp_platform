@@ -20,8 +20,16 @@ open http://localhost:8080
 ## 3. Real hardware
 
 1. Firmware (MESP_lab): set `NRF_LINK_ENABLED 1` in `app_config.h`; flash the STM32; flash `ble_uart_bridge.ino` to the XIAO nRF52840; wire USART1 + RTS/CTS as in the sketch header.
-2. Console → Devices → **Pair device** → choose profile `mesp-lab-main-v1` (or the profile matching your presets) → copy the ingest key.
-3. On a machine with Bluetooth:
+2. **Easiest: connect straight from the website** (no program to install). Sign in with a real account (operator or admin; the demo login cannot stream), open **Live**, add the wristband if asked, then press:
+   - **Connect by Bluetooth** and pick `MESP-Health` (Chrome or Edge on Windows, macOS, Android; on Linux first enable `chrome://flags` → *Experimental Web Platform features*), or
+   - **Connect by USB cable** with the cable plugged into the XIAO nRF52840 (desktop Chrome or Edge; Linux may need `sudo usermod -aG dialout $USER`, then log out and in). The cable carries the same bytes the nRF sends over Bluetooth, so Bluetooth is skipped entirely.
+
+   The website must be opened over https (or on localhost). Data goes browser → `/api/v1/ingest/browser/ws` → the same pipeline as the gateway; the server re-checks every CRC. Only one connection per device at a time (website tab, another computer, or the gateway program).
+
+   Or use the command-line gateway (below), e.g. for an always-on bench PC or to record sessions:
+
+   Console → Devices → **Pair device** → choose profile `mesp-lab-main-v1` (or the profile matching your presets) → copy the ingest key.
+3. Gateway program, on a machine with Bluetooth:
    ```bash
    pip install -e packages/protocol/python -e replay -e "services/gateway[ble]"
    export MESP_DEVICE_KEY='mesp_dk_…'

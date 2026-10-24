@@ -5,6 +5,7 @@ import type { MespEvent } from '@mesp/types'
 import { cssColor } from '@mesp/ui'
 import type { ShellCtx } from '@/components/AppShell'
 import { AckDialog } from '@/components/AckDialog'
+import { ConnectPanel } from '@/components/ConnectPanel'
 import { EventRow } from '@/components/EventRow'
 import { Disclaimer, FreshnessPill, SyntheticBadge } from '@/components/status'
 import { Badge } from '@/components/ui/badge'
@@ -42,6 +43,7 @@ function useThemeColors() {
 export default function Live() {
   const { current, devices, devicesLoading, devicesError, reloadDevices } = useOutletContext<ShellCtx>()
   const role = useAuth((s) => s.role)
+  const demo = useAuth((s) => s.demo)
   const navigate = useNavigate()
   const id = current?.id
   const conn = useLive((s) => s.conn)
@@ -81,10 +83,16 @@ export default function Live() {
   if (devicesError) return <StateView kind="error" title="Could not load devices" body={devicesError} action="Retry" onAction={reloadDevices} />
   if (devicesLoading && !devices.length) return <LiveSkeleton />
   if (!current) {
+    const realUser = can(role, 'operator') && !demo
     return (
       <StateView kind="empty" title="No devices yet"
-        body="Pair your MESP wristband, or start a demo scenario to explore the platform with clearly labelled synthetic data."
-        action={can(role, 'operator') ? 'Start a demo scenario' : undefined} onAction={() => navigate('/app/demo')} />
+        body={realUser
+          ? 'Add your MESP wristband to connect it by Bluetooth or USB cable, or start a demo scenario with clearly labelled synthetic data.'
+          : 'Pair your MESP wristband, or start a demo scenario to explore the platform with clearly labelled synthetic data.'}
+        action={realUser ? 'Add my wristband' : can(role, 'operator') ? 'Start a demo scenario' : undefined}
+        onAction={realUser
+          ? async () => { await api.createDevice('MESP wristband', 'mesp-lab-main-v1'); reloadDevices() }
+          : () => navigate('/app/demo')} />
     )
   }
 
@@ -111,9 +119,11 @@ export default function Live() {
         </div>
       </div>
 
+      <ConnectPanel device={current} />
+
       {state === 'NO DATA' && (
         <Card><StateView kind="offline" title="This device has not streamed yet"
-          body={<>Start the gateway with this device’s ingest key. See <Link className="text-primary underline" to={`/app/devices/${current.id}`}>device setup</Link>.</>} /></Card>
+          body={<>Connect it above by Bluetooth or USB cable, or run the gateway program with this device’s ingest key (<Link className="text-primary underline" to={`/app/devices/${current.id}`}>device setup</Link>).</>} /></Card>
       )}
       {state === 'ERROR' && <Card><StateView kind="error" title="Live stream unavailable" body="Your session may have expired." action="Sign in again" onAction={() => navigate('/login')} /></Card>}
 

@@ -67,6 +67,8 @@ async def ingest_browser_ws(ws: WebSocket) -> None:
         if first.get("type") != "auth":
             raise ValueError("first message must be auth")
         principal = principal_from_token(ctx, str(first.get("token", "")))
+    except WebSocketDisconnect:
+        return                       # the page closed before signing in: nothing to answer
     except Exception:  # noqa: BLE001 - any failure here is an authentication failure
         ctx.metrics.inc("ingest_rejected_messages_total")
         await ws.close(code=4401, reason="authentication required")
@@ -141,12 +143,16 @@ async def _ingest_loop(ctx: AppContext, ws: WebSocket, device: models.Device, de
     finally:
         if sess is not None:
             # shielded: the WebSocket task may be cancelled, but the session must be finalised
-            await asyncio.shield(_finish(ctx, device.id, sess, expected_close))
+            await asyncio.shield(_finish(ctx, device.id, sess, expected_close, default_source))
 
 
-async def _finish(ctx: AppContext, device_id: str, sess: IngestSession, expected: bool) -> None:
+async def _finish(ctx: AppContext, device_id: str, sess: IngestSession, expected: bool, via: str = "gateway") -> None:
+    if via == "browser":
+        reason = "stopped from the website" if expected else "website connection closed (page closed, or internet lost)"
+    else:
+        reason = "gateway stopped" if expected else "gateway connection closed"
     try:
-        await sess.close("gateway stopped" if expected else "gateway connection closed", expected=expected)
+        await sess.close(reason, expected=expected)
     finally:
         if ctx.ingest.get(device_id) is sess:
             ctx.ingest.pop(device_id, None)
@@ -161,6 +167,8 @@ async def live_ws(ws: WebSocket) -> None:
         if first.get("type") != "auth":
             raise ValueError
         principal = principal_from_token(ctx, str(first.get("token", "")))
+    except WebSocketDisconnect:
+        return                       # the page closed before signing in: nothing to answer
     except Exception:  # noqa: BLE001 - any failure is an auth failure here
         await ws.close(code=4401, reason="authentication required")
         return
